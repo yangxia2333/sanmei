@@ -2686,7 +2686,17 @@ function bindTableEvents() {
     document.querySelectorAll("[data-bottom]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.bottom), 'bottom'));
     document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => deleteRow(Number(b.dataset.del)));
     document.querySelectorAll("#tableWrap input[data-row]").forEach(inp => {
-        inp.onchange = function() { cellEdit(Number(this.dataset.row), Number(this.dataset.col), this.value); };
+        inp.onchange = function() {
+            const val = this.value;
+            const rIdx = Number(this.dataset.row);
+            const cIdx = Number(this.dataset.col);
+            // 先主动失去焦点（收起键盘），让浏览器停止编辑状态
+            if (document.activeElement) document.activeElement.blur();
+            // 延迟 10 毫秒执行，给浏览器留出重新渲染的时间
+            setTimeout(() => {
+                cellEdit(rIdx, cIdx, val);
+            }, 10);
+        };
     });
     document.querySelectorAll(".row-checkbox").forEach(cb => {
         cb.onchange = function() {
@@ -2836,16 +2846,16 @@ function cellEdit(ri, ci, val) {
                 }
             }
             if (finalRow) {
-                r.原始数量 = finalRow.原始数量;
+                r.原始数量 = finalRow.原始数量;  // 👈 核心：把修正后的600重新赋给r
                 appData._manualCombineValues[r.品种] = finalRow.原始数量;
             }
         } else if (r.品相 === "少量花" && !r._isCombine) {
             recalculateCombines(null);
         }
         appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
-        if (document.activeElement) document.activeElement.blur();
-        saveStorage();
-        renderTable();
+        if (document.activeElement) document.activeElement.blur(); // 👈 加上这行
+        saveStorage(); 
+        renderTable(); 
         return;
     } else if (key === "销量") {
         const newVal = Number(val) || 0;
