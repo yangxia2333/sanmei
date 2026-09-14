@@ -81,7 +81,6 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <button class="home-btn" id="btnSaveAll" style="background:#009944;">💾 保存所有数据</button>
 <button class="home-btn" id="btnCloudSync" style="background:#17a2b8;">☁️ 立即同步云端</button>
 <button class="home-btn" id="btnPullData" style="background:#17a2b8;">⬇️ 从云端拉取最新数据</button>
-<button class="home-btn" id="btnLoadHistory" style="background:#e67e22;">🕐 读取云端历史记录</button>
 <button class="home-btn" id="btnLib">品种库</button>
 <button class="home-btn" id="btnInputData">输入/解析原始文本</button>
 <button class="home-btn" id="btnSalesPage">销量设置</button>
@@ -367,9 +366,7 @@ const autoCombineList = [
 ];
 
 let appData = {
-        _manualCombineValues: {},
-        thresholdDai: 30,
-    thresholdShao: 30, // 库存统计阈值
+    stockThreshold: 30, // 库存统计阈值
         _dataSourceDate: "", // 新增：数据来源日期
     variety_list: [], alias_map: {}, sales_dict: {}, divisor: 1.8,
         button_names: {},
@@ -707,8 +704,6 @@ function recalculateCombines(fixedPureIdx) {
             }
         }
         const assigned = {}, used = {};
-
-        // 1. 手动固定逻辑
         if (fixedCfg) {
             const userVal = Number(appData.pure_rows[fixedIdx].原始数量) || 0;
             let totalA = 0, totalB = 0;
@@ -729,94 +724,8 @@ function recalculateCombines(fixedPureIdx) {
             used[fixedCfg.a] = (used[fixedCfg.a] || 0) + take;
             used[fixedCfg.b] = (used[fixedCfg.b] || 0) + take;
         }
-
-        // 2. 共享品种公平分配逻辑（新增核心逻辑）
-        const sharedResolved = new Set();
-        const varToCombines = {};
-        for (const c of allCombineCfg) {
-            for (const v of [c.a, c.b]) {
-                if (!varToCombines[v]) varToCombines[v] = [];
-                varToCombines[v].push(c);
-            }
-        }
-        for (const v in varToCombines) {
-            const cfgs = varToCombines[v];
-            if (cfgs.length === 2) {
-                const cA = cfgs[0], cB = cfgs[1];
-                if (!sharedResolved.has(cA.name) && !sharedResolved.has(cB.name)) {
-                    if (fixedCfg && (fixedCfg.name === cA.name || fixedCfg.name === cB.name)) continue;
-                    
-                    const uA = (cA.a === v) ? cA.b : cA.a;
-                    const uB = (cB.a === v) ? cB.b : cB.a;
-                    let qS = 0, qUA = 0, qUB = 0;
-                    for (const r of appData.pure_rows) {
-                        if (r.品相 === "少量花" && !r._isCombine) {
-                            if (r.品种 === v) qS += Number(r.原始数量) || 0;
-                            if (r.品种 === uA) qUA += Number(r.原始数量) || 0;
-                            if (r.品种 === uB) qUB += Number(r.原始数量) || 0;
-                        }
-                    }
-                                        // 如果共享品种（云南紫）本身没有库存，两个组合都只能是0
-                    if (qS === 0) {
-                        assigned[cA.name] = 0; assigned[cB.name] = 0;
-                        used[v] = (used[v] || 0) + 0;
-                        used[uA] = (used[uA] || 0) + 0;
-                        used[uB] = (used[uB] || 0) + 0;
-                        sharedResolved.add(cA.name); sharedResolved.add(cB.name);
-                        continue;
-                    }
-                    
-                    let takeA = 0, takeB = 0;
-                    
-                    if (qUA === 0 && qUB === 0) {
-                        takeA = 0; takeB = 0;
-                    } else if (qUA > 0 && qUB === 0) {
-                        // 如果组合A的独有品种有库存，但组合B的独有品种是0，组合A优先全拿
-                        takeA = Math.min(qS, qUA);
-                        takeB = 0;
-                    } else if (qUB > 0 && qUA === 0) {
-                        takeB = Math.min(qS, qUB);
-                        takeA = 0;
-                    } else {
-                        // 双方独有品种都有库存，按“最少品种”规则分配
-                        const minQ = Math.min(qS, qUA, qUB);
-                        if (minQ === qS) {
-                            takeA = Math.floor(qS / 2);
-                            takeB = Math.floor(qS / 2);
-                        } else if (minQ === qUA) {
-                            takeA = qUA;
-                            const remS = qS - takeA;
-                            takeB = Math.min(remS, qUB);
-                        } else if (minQ === qUB) {
-                            takeB = qUB;
-                            const remS = qS - takeB;
-                            takeA = Math.min(remS, qUA);
-                        }
-                    }
-                    if (appData._manualCombineValues && appData._manualCombineValues[cA.name] !== undefined) {
-                        takeA = Math.max(0, Math.min(appData._manualCombineValues[cA.name], qS, qUA));
-                        const remS = qS - takeA;
-                        takeB = Math.min(remS, qUB);
-                    }
-                    if (appData._manualCombineValues && appData._manualCombineValues[cB.name] !== undefined) {
-                        takeB = Math.max(0, Math.min(appData._manualCombineValues[cB.name], qS, qUB));
-                        const remS = qS - takeB;
-                        takeA = Math.min(remS, qUA);
-                    }
-                    assigned[cA.name] = takeA;
-                    assigned[cB.name] = takeB;
-                    used[v] = (used[v] || 0) + takeA + takeB;
-                    used[uA] = (used[uA] || 0) + takeA;
-                    used[uB] = (used[uB] || 0) + takeB;
-                    sharedResolved.add(cA.name); sharedResolved.add(cB.name);
-                }
-            }
-        }
-
-        // 3. 剩余的常规组合处理
         for (const c of allCombineCfg) {
             if (fixedCfg && c.name === fixedCfg.name) continue;
-            if (assigned[c.name] !== undefined) continue; 
             let totalA = 0, totalB = 0;
             for (const r of appData.pure_rows) {
                 if (r.品相 === "少量花" && !r._isCombine) {
@@ -827,18 +736,11 @@ function recalculateCombines(fixedPureIdx) {
             }
             const availA = totalA - (used[c.a] || 0);
             const availB = totalB - (used[c.b] || 0);
-            let take;
-            if (appData._manualCombineValues && appData._manualCombineValues[c.name] !== undefined) {
-                take = Math.max(0, Math.min(appData._manualCombineValues[c.name], availA, availB));
-            } else {
-                take = Math.max(0, Math.min(availA, availB));
-            }
+            const take = Math.max(0, Math.min(availA, availB));
             assigned[c.name] = take;
             used[c.a] = (used[c.a] || 0) + take;
             used[c.b] = (used[c.b] || 0) + take;
         }
-
-        // 4. 更新 UI 并清理
         for (const c of allCombineCfg) {
             const name = c.name;
             const idx = combineMap[name];
@@ -1882,76 +1784,6 @@ function filterLibList() {
 }
 
 // ===== 安全拉取：只下载云端数据，不上传本地空数据 =====
-// ===== 读取云端最近5次历史记录 =====
-async function loadCloudHistory() {
-    showToast('正在读取历史记录...');
-    try {
-        const { data, error } = await cloudDB.from('sync_history')
-            .select('id, device_name, last_sync, data')
-            .order('last_sync', { ascending: false })
-            .limit(5);
-        if (error) throw error;
-        if (!data || data.length === 0) { alert("云端目前没有历史备份记录"); return; }
-
-        let msg = "请选择要恢复的历史版本：\n\n";
-        data.forEach((item, index) => {
-            const t = new Date(item.last_sync).toLocaleString();
-            msg += `${index + 1}. 时间：${t}  设备：${item.device_name}\n`;
-        });
-        
-        const choice = prompt(msg + "\n请输入序号 (1-" + data.length + "):", "1");
-        if (choice === null) return;
-        const idx = parseInt(choice, 10) - 1;
-        if (isNaN(idx) || idx < 0 || idx >= data.length) { alert("输入无效"); return; }
-
-        const selected = data[idx];
-        if (!confirm(`确定恢复 ${new Date(selected.last_sync).toLocaleString()} 的备份吗？\n当前设备数据将被覆盖。`)) return;
-
-        applyLoadedData(selected.data);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(selected.data));
-        renderTable();
-        showToast('✅ 已成功恢复历史备份');
-        alert("恢复成功！");
-    } catch(e) {
-        console.error('读取历史失败', e);
-        alert("读取历史记录失败：" + e.message);
-    }
-}
-// ===== 读取云端最近5次历史记录 =====
-async function loadCloudHistory() {
-    showToast('正在读取历史记录...');
-    try {
-        const { data, error } = await cloudDB.from('sync_history')
-            .select('id, device_name, last_sync, data')
-            .order('last_sync', { ascending: false })
-            .limit(5);
-        if (error) throw error;
-        if (!data || data.length === 0) { alert("云端目前没有历史备份记录"); return; }
-
-        let msg = "请选择要恢复的历史版本：\n\n";
-        data.forEach((item, index) => {
-            const t = new Date(item.last_sync).toLocaleString();
-            msg += `${index + 1}. 时间：${t}  设备：${item.device_name}\n`;
-        });
-        
-        const choice = prompt(msg + "\n请输入序号 (1-" + data.length + "):", "1");
-        if (choice === null) return;
-        const idx = parseInt(choice, 10) - 1;
-        if (isNaN(idx) || idx < 0 || idx >= data.length) { alert("输入无效"); return; }
-
-        const selected = data[idx];
-        if (!confirm(`确定恢复 ${new Date(selected.last_sync).toLocaleString()} 的备份吗？\n当前设备数据将被覆盖。`)) return;
-
-        applyLoadedData(selected.data);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(selected.data));
-        renderTable();
-        showToast('✅ 已成功恢复历史备份');
-        alert("恢复成功！");
-    } catch(e) {
-        console.error('读取历史失败', e);
-        alert("读取历史记录失败：" + e.message);
-    }
-}
 async function forcePullFromCloud() {
     if (!confirm("确定要从云端拉取最新数据吗？\n这会覆盖当前设备上的旧数据（不会影响其他设备已同步的数据）。")) return;
     showToast('正在拉取云端数据...');
@@ -2011,11 +1843,9 @@ async function loadStorage() {
 }
 
 function applyLoadedData(d) {
-        appData.thresholdDai = d.thresholdDai || 30;
-    appData.thresholdShao = d.thresholdShao || 30;
+    appData.stockThreshold = d.stockThreshold || 30;
         appData._dataSourceDate = d._dataSourceDate || "";
         appData.button_names = d.button_names || {};
-            appData._manualCombineValues = d._manualCombineValues || {};
   appData.variety_list = d.variety_list || [];
   appData.alias_map = d.alias_map || {};
   appData.sales_dict = d.sales_dict || {};
@@ -2037,9 +1867,7 @@ function applyLoadedData(d) {
 
 function saveStorage() {
   const payload = {
-        _manualCombineValues: appData._manualCombineValues,
-          thresholdDai: appData.thresholdDai,
-    thresholdShao: appData.thresholdShao,
+      stockThreshold: appData.stockThreshold,
         _dataSourceDate: appData._dataSourceDate,
         button_names: appData.button_names,
     variety_list: appData.variety_list, alias_map: appData.alias_map,
@@ -2058,21 +1886,13 @@ function saveStorage() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   
   // 2. 异步推送到云端
-   cloudDB.from('devices').upsert({
+  cloudDB.from('devices').upsert({
     id: DEVICE_ID,
-    device_name: getDeviceName(),
+    device_name: (navigator.userAgent.includes('Android') ? '安卓手机' : navigator.userAgent.includes('iPhone') ? '苹果手机' : navigator.userAgent.includes('Windows') ? 'Windows电脑' : '未知设备'),
     last_sync: new Date().toISOString(),
     data: payload
   }).then(({ error }) => {
     if (error) console.warn('云端保存失败（本地已保存）:', error.message);
-  });
-
-  // 同时写入历史记录表，只保留最近5次
-  cloudDB.from('sync_history').insert({
-    device_name: getDeviceName(),
-    data: payload
-  }).then(({ error }) => {
-    if (error) console.warn('历史记录保存失败:', error.message);
   });
 }
 
@@ -2586,11 +2406,11 @@ function renderTable() {
         }
         const stat = document.getElementById("statPanel");
         const totalRows = rows.length;
-                const tDai = appData.thresholdDai || 30;
-        const tShao = appData.thresholdShao || 30;
-        const daiCount = rows.filter(x => x.品相 === "带花" && !x._raw._isCombine && (Number(x.剩余库存)||0) >= tDai).length;
-        const shaoCount = rows.filter(x => x.品相 === "少量花" && !x._raw._isCombine && (Number(x.剩余库存)||0) >= tShao).length;
-        stat.innerHTML = `<div class="stat-item">总行数:${totalRows}</div><div class="stat-item" id="statDai" style="cursor:pointer;">带花品≥${tDai}:${daiCount}</div><div class="stat-item" id="statShao" style="cursor:pointer;">少量花品≥${tShao}:${shaoCount}</div>`;
+        const threshold = appData.stockThreshold || 30;
+        // 注意：这里判断的是“剩余库存”是否大于等于阈值
+        const daiCount = rows.filter(x => x.品相 === "带花" && !x._raw._isCombine && (Number(x.剩余库存)||0) >= threshold).length;
+        const shaoCount = rows.filter(x => x.品相 === "少量花" && !x._raw._isCombine && (Number(x.剩余库存)||0) >= threshold).length;
+        stat.innerHTML = `<div class="stat-item">总行数:${totalRows}</div><div class="stat-item">带花品≥${threshold}:${daiCount}</div><div class="stat-item">少量花品≥${threshold}:${shaoCount}</div>`;
         const keySet = new Set(), warnSet = new Set();
         rows.forEach(r => {
             if (r._raw._isCombine) return;
@@ -2685,7 +2505,7 @@ function bindTableEvents() {
     document.querySelectorAll("[data-top]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.top), 'top'));
     document.querySelectorAll("[data-bottom]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.bottom), 'bottom'));
     document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => deleteRow(Number(b.dataset.del)));
-        document.querySelectorAll("#tableWrap input[data-row]").forEach(inp => {
+    document.querySelectorAll("#tableWrap input[data-row]").forEach(inp => {
         inp.onchange = function() { cellEdit(Number(this.dataset.row), Number(this.dataset.col), this.value); };
     });
     document.querySelectorAll(".row-checkbox").forEach(cb => {
@@ -2818,41 +2638,11 @@ function cellEdit(ri, ci, val) {
     if (key === "原始数量") {
         const newVal = Number(val) || 0;
         r.原始数量 = newVal;
-        if (r.品相 === "组合" && r._isCombine) {
-            // 1. 记录用户手动修改的组合值
-            if (!appData._manualCombineValues) appData._manualCombineValues = {};
-            appData._manualCombineValues[r.品种] = newVal;
-            
-            // 2. 重新计算所有组合
-            recalculateCombines(idx);
-            
-            // 3. 强制从 appData.pure_rows 中同步最终值回当前行 r
-            let finalRow = null;
-            for (let i = 0; i < appData.pure_rows.length; i++) {
-                const row = appData.pure_rows[i];
-                if (row.品种 === r.品种 && row.品相 === "组合" && row._isCombine) {
-                    finalRow = row;
-                    break;
-                }
-            }
-            if (finalRow) {
-                r.原始数量 = finalRow.原始数量;  // 👈 核心：把修正后的600重新赋给r
-                appData._manualCombineValues[r.品种] = finalRow.原始数量;
-            }
-        } else if (r.品相 === "少量花" && !r._isCombine) {
-            recalculateCombines(null);
-        }
+        if (r.品相 === "组合" && r._isCombine) recalculateCombines(idx);
+        else if (r.品相 === "少量花" && !r._isCombine) recalculateCombines(null);
         appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
-        saveStorage(); 
-        renderTable(); 
-        return;
-    } else if (key === "销量") {
-        const newVal = Number(val) || 0;
-        const salesKey = `${r.品种}||${r.品相}||${r.规格||''}`;
-        if (newVal === 0) delete appData.sales_dict[salesKey];
-        else appData.sales_dict[salesKey] = newVal;
         saveStorage(); renderTable(); return;
-    } else if (key === "品种") {
+    } else if (key === "销量") {
         const newVal = Number(val) || 0;
         const salesKey = `${r.品种}||${r.品相}||${r.规格||''}`;
         if (newVal === 0) delete appData.sales_dict[salesKey];
@@ -2965,28 +2755,18 @@ function batchClearSales() {
 }
 
 function bindGlobalButtons() {
-        // 点击"带花品"或"少量花品"分别修改各自的阈值
+    // 点击统计面板修改阈值
     const statPanelEl = document.getElementById("statPanel");
     if (statPanelEl) {
-        statPanelEl.addEventListener('click', (e) => {
-            const statDaiEl = document.getElementById("statDai");
-            const statShaoEl = document.getElementById("statShao");
-            let target = null;
-            if (statDaiEl && statDaiEl.contains(e.target)) target = 'dai';
-            else if (statShaoEl && statShaoEl.contains(e.target)) target = 'shao';
-            if (!target) return;
-            
-            const currentVal = target === 'dai' ? appData.thresholdDai : appData.thresholdShao;
-            const label = target === 'dai' ? "带花品" : "少量花品";
-            const newThresh = prompt(`请输入${label}统计阈值 (当前 ${currentVal}):`, currentVal);
+        statPanelEl.addEventListener('click', () => {
+            const newThresh = prompt("请输入库存统计的阈值 (默认30):", appData.stockThreshold);
             if (newThresh !== null) {
                 const val = parseInt(newThresh, 10);
                 if (!isNaN(val) && val >= 0) {
-                    if (target === 'dai') appData.thresholdDai = val;
-                    else appData.thresholdShao = val;
-                    saveStorage();
-                    renderTable();
-                    showToast(`✅ ${label}阈值已改为 ${val}`);
+                    appData.stockThreshold = val;
+                    saveStorage(); // 保存到云端，手机和电脑同时生效
+                    renderTable(); // 重新渲染表格以更新统计
+                    showToast('✅ 阈值已修改为 ' + val);
                 } else {
                     alert("请输入有效的非负整数！");
                 }
@@ -3000,7 +2780,6 @@ function bindGlobalButtons() {
         showToast('☁️ 云端同步完成');
     });
         document.getElementById("btnPullData").addEventListener('click', forcePullFromCloud);
-            document.getElementById("btnLoadHistory").addEventListener('click', loadCloudHistory);
     document.getElementById("btnLib").addEventListener('click', () => goPage('lib'));
     document.getElementById("btnInputData").addEventListener('click', () => goPage('inputData'));
     document.getElementById("btnSalesPage").addEventListener('click', () => goPage('salesPage'));
