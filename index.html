@@ -28,6 +28,7 @@ td .row-resize-handle{position:absolute;bottom:-2px;left:0;width:100%;height:10p
 td .row-resize-handle:active{background:rgba(43,101,236,0.3);}
 .pop-mask{position:fixed;inset:0;background:#00000060;display:flex;align-items:center;justify-content:center;padding:12px;z-index:99;}
 tr.updated-row td.cell-yellow { background-color: #ffff00 !important; color: #000000 !important; }
+td.cell-var-click { background-color: #ff0000 !important; color: #ffffff !important; }
 td.cell-red {background-color: #ff0000 !important;color: #ffffff !important;}
 .pop-win{background:#fff;padding:14px;border-radius:10px;width:100%;max-width:380px;max-height:85vh;overflow:auto;}
 .hide{display:none !important;}
@@ -2547,8 +2548,15 @@ function renderTable() {
                 if (c === "剩余库存" && (Number(val) || 0) <= 0) {
                     cellCls += " cell-red";
                 }
-                html += `<td ${hide} class="${cellCls}" data-rowindex="${ri}" data-colindex="${ci}" style="position:relative;">
-                <input data-row="${ri}" data-col="${ci}" type="${type}" value="${val}" ${actualDisabled?'disabled':''}>
+                                let tdExtraAttr = '';
+                let inputExtraAttr = '';
+                if (c === "品种") {
+                    tdExtraAttr = ' data-is-variety="true" ';
+                    inputExtraAttr = ' readonly ';
+                }
+
+                html += `<td ${hide} ${tdExtraAttr} class="${cellCls}" data-rowindex="${ri}" data-colindex="${ci}" style="position:relative;">
+                <input data-row="${ri}" data-col="${ci}" type="${type}" value="${val}" ${actualDisabled?'disabled':''} ${inputExtraAttr}>
                 ${ci === 0 ? '<div class="row-resize-handle"></div>' : ''}
                 </td>`;
             });
@@ -2577,6 +2585,37 @@ function renderTable() {
 }
 
 function bindTableEvents() {
+        // ===== 处理“品种”单元格：点击标红，长按修改 =====
+    document.querySelectorAll('#tableWrap td[data-is-variety="true"]').forEach(td => {
+        let pressTimer = null;
+        let isLongPress = false;
+        const inp = td.querySelector('input');
+        if (!inp) return;
+
+        td.addEventListener('pointerdown', (e) => {
+            isLongPress = false;
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                inp.removeAttribute('readonly');
+                inp.focus();
+                pressTimer = null;
+            }, 800);
+        });
+
+        td.addEventListener('pointerup', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+        td.addEventListener('pointerleave', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+
+        inp.addEventListener('blur', () => {
+            inp.setAttribute('readonly', true);
+        });
+
+        td.addEventListener('click', (e) => {
+            if (isLongPress) return;
+            if (e.target.tagName === 'INPUT') return;
+            document.querySelectorAll('.cell-var-click').forEach(el => el.classList.remove('cell-var-click'));
+            td.classList.add('cell-var-click');
+        });
+    });
     document.querySelectorAll("[data-up]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.up), 'up'));
     document.querySelectorAll("[data-down]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.down), 'down'));
     document.querySelectorAll("#tableWrap input[data-row]").forEach(inp => {
@@ -2717,20 +2756,13 @@ function cellEdit(ri, ci, val) {
         saveStorage(); 
         renderTable(); 
         return;
-        } else if (key === "原始数量") {
+            } else if (key === "原始数量") {
         const newVal = Number(val) || 0;
-        const oldDiffFlag = r._diffUpdated; // 记住原来的黄色标记
-        const oldHighlightFlag = r._updatedHighlight; // 记住原来的粉色标记
         r.原始数量 = newVal;
+        r._diffUpdated = true;  // 新增：手动修改也打上黄色标记
         if (r.品相 === "组合" && r._isCombine) recalculateCombines(idx);
         else if (r.品相 === "少量花" && !r._isCombine) recalculateCombines(null);
         appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
-        // 重新找到当前行（排序后索引变了），恢复标记
-        const curRow = appData.pure_rows.find(x => x.品种 === r.品种 && x.品相 === r.品相 && x._isCombine === r._isCombine && (x.规格||'') === (r.规格||''));
-        if (curRow) {
-            if (oldDiffFlag) curRow._diffUpdated = true;
-            if (oldHighlightFlag) curRow._updatedHighlight = true;
-        }
         appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
         saveStorage(); renderTable(); return;
     } else if (key === "销量") {
