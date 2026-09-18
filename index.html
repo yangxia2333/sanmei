@@ -2388,7 +2388,7 @@ function fillExportText() {
     const full = assembleFullData();
     const buf = [];
     if (mode === "backup") {
-        buf.push("品种\t品相\t卖价\t原始数量\t销量\t剩余库存\t抖音\t微信\t备注");
+        buf.push("品种\t卖价\t品相\t原始数量\t销量\t剩余库存\t抖音\t微信\t备注");
         full.forEach(r => {
             const calc = calcRow(r);
             const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
