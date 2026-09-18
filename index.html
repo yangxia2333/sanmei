@@ -27,6 +27,7 @@ th .resize-handle:active{background:rgba(43,101,236,0.3);}
 td .row-resize-handle{position:absolute;bottom:-2px;left:0;width:100%;height:10px;cursor:row-resize;background:transparent;z-index:10;touch-action:none;}
 td .row-resize-handle:active{background:rgba(43,101,236,0.3);}
 .pop-mask{position:fixed;inset:0;background:#00000060;display:flex;align-items:center;justify-content:center;padding:12px;z-index:99;}
+tr td.cell-yellow { background-color: #ffff00 !important; color: #000000 !important; }
 tr.updated-row td.cell-yellow { background-color: #ffff00 !important; color: #000000 !important; }
 td.cell-var-click { background-color: #ff0000 !important; color: #ffffff !important; }
 td.cell-red {background-color: #ff0000 !important;color: #ffffff !important;}
@@ -2585,37 +2586,32 @@ function renderTable() {
 }
 
 function bindTableEvents() {
-        // ===== 处理“品种”单元格：点击标红，长按修改 =====
+        // ===== 处理“品种”单元格：单击标红，双击修改 =====
     document.querySelectorAll('#tableWrap td[data-is-variety="true"]').forEach(td => {
-        let pressTimer = null;
-        let isLongPress = false;
         const inp = td.querySelector('input');
         if (!inp) return;
 
-        td.addEventListener('pointerdown', (e) => {
-            isLongPress = false;
-            pressTimer = setTimeout(() => {
-                isLongPress = true;
-                inp.removeAttribute('readonly');
-                inp.focus();
-                pressTimer = null;
-            }, 800);
-        });
-
-        td.addEventListener('pointerup', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
-        td.addEventListener('pointerleave', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
-
-        inp.addEventListener('blur', () => {
-            inp.setAttribute('readonly', true);
-        });
-
+        // 单击事件：如果是只读状态，切换红标
         td.addEventListener('click', (e) => {
-            if (isLongPress) return;
-            if (e.target.tagName === 'INPUT') return;
-            document.querySelectorAll('.cell-var-click').forEach(el => el.classList.remove('cell-var-click'));
-            td.classList.add('cell-var-click');
+            if (inp.hasAttribute('readonly')) {
+                document.querySelectorAll('.cell-var-click').forEach(el => el.classList.remove('cell-var-click'));
+                td.classList.add('cell-var-click');
+            }
+        });
+
+        // 双击事件：移除只读，允许编辑
+        td.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            inp.removeAttribute('readonly');
+            inp.focus();
+        });
+
+        // 失去焦点时恢复只读
+        inp.addEventListener('blur', () => {
+            inp.setAttribute('readonly', 'true');
         });
     });
+    
     document.querySelectorAll("[data-up]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.up), 'up'));
     document.querySelectorAll("[data-down]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.down), 'down'));
     document.querySelectorAll("#tableWrap input[data-row]").forEach(inp => {
