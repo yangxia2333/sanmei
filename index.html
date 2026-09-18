@@ -27,10 +27,7 @@ th .resize-handle:active{background:rgba(43,101,236,0.3);}
 td .row-resize-handle{position:absolute;bottom:-2px;left:0;width:100%;height:10px;cursor:row-resize;background:transparent;z-index:10;touch-action:none;}
 td .row-resize-handle:active{background:rgba(43,101,236,0.3);}
 .pop-mask{position:fixed;inset:0;background:#00000060;display:flex;align-items:center;justify-content:center;padding:12px;z-index:99;}
-td.cell-red {
-    background-color: #ff0000 !important;
-    color: #ffffff !important;
-}
+td.cell-red {background-color: #ff0000 !important;color: #ffffff !important;}
 .pop-win{background:#fff;padding:14px;border-radius:10px;width:100%;max-width:380px;max-height:85vh;overflow:auto;}
 .hide{display:none !important;}
 .list-item{padding:7px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -38,7 +35,7 @@ td input{width:100%;border:none;background:transparent;text-align:center;margin:
 td input:focus{background:#f0f7ff;}
 #tableWrap{overflow-x:auto;}
 
-/* ===== 斑马纹 + 各类行底色（写在前面，优先级靠后覆盖） ===== */
+/* 斑马纹 + 各类行底色 */
 tr.zebra-even td{background:#ffffff;}
 tr.zebra-odd td{background:#f0f2f5;}
 tr.system-combine td{background:#fff2cc;}
@@ -109,6 +106,8 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <input id="newVarName" placeholder="例如：玫瑰红">
 <label>别名，逗号分隔（玫红,玫）:</label>
 <input id="newVarAlias" placeholder="缩写别名">
+<label>带花价格（元）:</label>
+<input id="newVarPrice" type="number" step="0.1" placeholder="例如 25">
 <button id="btnSaveNewVar">保存新建</button>
 </div>
 </div>
@@ -199,7 +198,6 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <div id="pageTable" class="hide">
 <div class="back-bar">
 <button class="gray" id="tableBackHome">返回首页</button>
-<button id="btnTableFunc">功能</button>
 <button id="btnClearHighlight" style="background:#6c757d;">清除高亮</button>
 <button id="btnClearRemoved" style="background:#c0392b;">清除红色标记</button>
 <button id="btnExportSelectedColsImg" style="background:#e67e22;">导出选中列为图片</button>
@@ -207,15 +205,15 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <div class="box">
 <div class="search-bar"><input id="searchInput" placeholder="搜索品种过滤表格"></div>
 <div id="dataSourceInfo" style="font-size:13px; color:#2b65ec; margin-bottom:8px; font-weight:bold;"></div>
+<div id="lastUpdateInfo" style="font-size:13px; color:#e67e22; margin-bottom:8px; font-weight:bold;"></div>
 <div class="stat-panel" id="statPanel"></div>
 <h3>结果表格（黄色行=组合行，可编辑且联动）</h3>
 <div class="col-op-bar">
 <button id="btnAddCol">+增加列</button>
-<button id="btnDelCol">-删除末尾列</button>
 <button id="btnDelSelectedRows" style="background:#d9534f;">删除选中行</button>
 <button id="btnUndoTableDelete" style="background:#17a2b8;">↩ 撤销删除</button>
-<button id="btnOpenExportPop">导出</button>
-<button id="btnOpenBatch">批量操作</button>
+<button id="btnHideSelectedCol" style="background:#6c757d;">隐藏选中列</button>
+<button id="btnUnhideCol" style="background:#17a2b8;">取消隐藏列</button>
 <button id="btnExportSelectedColsImg2" style="background:#e67e22;">导出选中列为图片</button>
 </div>
 <div id="tableWrap" style="overflow-x:auto;"></div>
@@ -233,39 +231,12 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 </div>
 </div>
 
-<div id="tableFuncPopup" class="pop-mask hide">
-<div class="pop-win">
-<h4>表格功能</h4>
-<div>列号从0开始；0=序号，1=品种，2=品相，3=原始数量，4=销量，5=剩余库存，6=抖音，7=微信，8=备注</div>
-<input id="funcColInput" placeholder="输入列数字，多个用逗号分隔，如 1,3,5">
-<button id="btnHideCol">隐藏该列</button>
-<button id="btnUnhideCol">取消隐藏该列</button>
-<br>
-<button id="btnSortCol">按此列降序排序</button>
-<button id="btnRestoreOrder">取消排序恢复原始</button>
-<br>
-<button class="gray" id="btnCloseTableFunc">关闭</button>
-</div>
-</div>
-
-<div id="batchPopup" class="pop-mask hide">
-<div class="pop-win">
-<h4>批量操作</h4>
-<div>批量修改品相</div>
-<input id="batchPhase" placeholder="例如：少量花">
-<button id="btnBatchSetPhase">全部行改为该品相</button>
-<br>
-<button id="btnBatchClearSales">批量清零销量</button>
-<br>
-<button class="gray" id="btnCloseBatch">关闭</button>
-</div>
-</div>
-
 <div id="editVarPopup" class="pop-mask hide">
 <div class="pop-win">
 <h4>编辑品种</h4>
 <input id="editVarName" placeholder="正式品种名">
 <input id="editVarAlias" placeholder="别名逗号分隔">
+<input id="editVarPrice" type="number" step="0.1" placeholder="带花价格（元）">
 <button id="btnSubmitEditVar">保存修改</button>
 <button class="gray" id="btnCloseEditVar">关闭</button>
 </div>
@@ -346,7 +317,6 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <script>
 // ===== 云端同步配置 =====
 const SUPABASE_URL = 'https://lxffmhnpmkqhxedysixq.supabase.co';
-// ⚠️ 请把下面这行的密钥换成你自己网页上复制的那一串！
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4ZmZtaG5wbWtxaHhlZHlzaXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNDEyODYsImV4cCI6MjEwNDYxNzI4Nn0.2aZQ3XncPj6x6XajNemUK0L37V1_kPVlEHy7pX6GnAw'; 
 const { createClient } = supabase;
 const cloudDB = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -366,17 +336,19 @@ const autoCombineList = [
 ];
 
 let appData = {
-    stockThreshold: 30, // 库存统计阈值
-        _dataSourceDate: "", // 新增：数据来源日期
+    stockThreshold: 30,
+    _dataSourceDate: "", 
+    _lastTableUpdateTime: "", // 新增：最近更新表格时间
+    variety_prices: {}, // 新增：品种带花价格库
     variety_list: [], alias_map: {}, sales_dict: {}, divisor: 1.8,
-        button_names: {},
+    button_names: {},
     pure_rows: [], original_pure_rows: [],
     hidden_cols: new Set(), customCols: [],
     pendingNewVar: "", editVarietyIndex: null,
     autoCombineCfg: JSON.parse(JSON.stringify(autoCombineList)),
     salesPendingLines: [], salesAllLines: [],
     _unsortedBackup: null, deletedStack: [], hasValidData: false, highlightedRows: new Set(),
-        _showZeroStockAlertOnTable: false, // 新增：销量导入后是否需要在表格页面弹窗
+    _showZeroStockAlertOnTable: false,
     remainFilterValues: [], selectedColsForExport: new Set(),
     diffOldText: "", diffNewText: "", diffResultText: "",
     _salesSortBackup: null,
@@ -385,6 +357,7 @@ let appData = {
 
 let selectedRows = new Set();
 let selectedCol = null;
+let lastHiddenCol = null; // 记录上次隐藏的列
 let dragState = { isDrag: false, thEl: null, startX: 0, startW: 0, pointerId: null };
 let rowDragState = { isDrag: false, trEl: null, startY: 0, startH: 0, pureIdx: -1, pointerId: null };
 
@@ -814,7 +787,7 @@ function undoDelete() {
     document.getElementById('btnUndoDelete').style.display = appData.deletedStack.length ? 'inline-block' : 'none';
 }
 
-/* ========== ★ 表格删除撤销（行/列） ========== */
+/* ========== 表格删除撤销（行/列） ========== */
 function pushDeleteHistory(action) {
     if (!appData.deleteHistory) appData.deleteHistory = [];
     appData.deleteHistory.push(action);
@@ -883,12 +856,6 @@ function moveRow(rowIdx, dir) {
         [appData.pure_rows[idx - 1], appData.pure_rows[idx]] = [appData.pure_rows[idx], appData.pure_rows[idx - 1]];
     } else if (dir === "down" && idx < len - 1) {
         [appData.pure_rows[idx], appData.pure_rows[idx + 1]] = [appData.pure_rows[idx + 1], appData.pure_rows[idx]];
-    } else if (dir === "top") {
-        const it = appData.pure_rows.splice(idx, 1)[0];
-        appData.pure_rows.unshift(it);
-    } else if (dir === "bottom") {
-        const it = appData.pure_rows.splice(idx, 1)[0];
-        appData.pure_rows.push(it);
     } else { return; }
     appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
     selectedRows.clear();
@@ -931,17 +898,6 @@ function addCustomCol() {
         appData.customCols.push(n.trim());
         saveStorage();
         renderTable();
-    }
-}
-
-function delCustomCol() {
-    if (!appData.customCols.length) { alert("没有可删除自定义列"); return; }
-    if (confirm("确定删除末尾自定义列？数据会丢失")) {
-        const name = appData.customCols.pop();
-        pushDeleteHistory({ type: 'col', name });
-        saveStorage();
-        renderTable();
-        showToast('已删除列：' + name + '（可点“撤销删除”恢复）');
     }
 }
 
@@ -1209,7 +1165,6 @@ function parseAnyText(text) {
         const match = cleanLine.match(/^(.*?)(\d+)(.*)$/);
 
         if (match) {
-            // 有数字的处理逻辑
             let varietyName = match[1].trim();
             const qty = parseInt(match[2], 10);
             const remarkRaw = match[3].trim();
@@ -1242,8 +1197,7 @@ function parseAnyText(text) {
             return;
         }
 
-        // ===== 新增逻辑：处理没有数字的纯文本品种（如【橙粉公主】）=====
-        let varietyName = cleanLine.replace(/无/g, "").trim(); // 去掉“无”字
+        let varietyName = cleanLine.replace(/无/g, "").trim();
         if (varietyName) {
             let remark = cleanLine.includes("无") ? "无" : "";
             let variety = normalizeVariety(varietyName);
@@ -1269,7 +1223,6 @@ function parseAnyText(text) {
                 备注: remark, 下架: false, _isCombine: false, _isSystemCombine: false, 规格: spec
             });
         }
-        // =========================================================
     });
     return mergePureRows(out);
 }
@@ -1301,7 +1254,8 @@ function doParse() {
                 alert(`检测到新品种：${appData.pendingNewVar}，请前往品种库添加。`);
             }
         }
-            appData._dataSourceDate = new Date().toLocaleString('zh-CN', {hour12: false});
+        appData._dataSourceDate = new Date().toLocaleString('zh-CN', {hour12: false});
+        appData._lastTableUpdateTime = appData._dataSourceDate; // 导入数据也记录时间
         appData.pure_rows = parsed;
         syncCombines();
         appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
@@ -1330,11 +1284,12 @@ function saveSalesText() {
 
 function processSalesLine(index) {
     const lines = appData.salesAllLines;
-        if (index >= lines.length) {
-        appData._showZeroStockAlertOnTable = true; // 标记：下次进表格需要弹窗
+    if (index >= lines.length) {
+        appData._showZeroStockAlertOnTable = true;
+        appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false}); // 更新最近时间
         renderTable();
         saveStorage();
-        alert("所有销量导入完成！请进入表格查看结果。"); // 这里只提示导入完成
+        alert("所有销量导入完成！请进入表格查看结果。");
         return;
     }
     const line = lines[index];
@@ -1564,6 +1519,7 @@ function runDiffCompare() {
     appData.diffOldText = oldTxt;
     appData.diffNewText = newTxt;
     appData.diffResultText = diffResultText;
+    appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false}); // 更新最近时间
     saveStorage();
 }
 
@@ -1741,6 +1697,7 @@ function updateTableFromDiff() {
     appData.diffOldText = document.getElementById("diffOld").value;
     appData.diffNewText = document.getElementById("diffNew").value;
     appData.diffResultText = document.getElementById("diffResult").innerText;
+    appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false}); // 更新最近时间
     saveStorage();
     renderTable();
     let msg = `✅ 表格已更新。`;
@@ -1807,7 +1764,6 @@ async function forcePullFromCloud() {
     }
 }
 async function loadStorage() {
-  // 1. 先用本地数据快速显示
   const localRaw = localStorage.getItem(STORAGE_KEY);
   if (localRaw) {
     try {
@@ -1816,7 +1772,6 @@ async function loadStorage() {
     } catch(e) { console.warn('本地数据损坏'); }
   }
 
-  // 2. 尝试从云端拉取最新数据
   try {
     const { data, error } = await cloudDB.from('devices').select('data, last_sync').order('last_sync', { ascending: false }).limit(1);
     if (!error && data && data.length > 0) {
@@ -1836,7 +1791,6 @@ async function loadStorage() {
     console.warn('云端同步失败，继续使用本地数据', e);
   }
 
-  // 3. 补充组合品种默认值
   for (const c of appData.autoCombineCfg) {
     if (!appData.variety_list.includes(c.name)) appData.variety_list.push(c.name);
   }
@@ -1844,32 +1798,36 @@ async function loadStorage() {
 
 function applyLoadedData(d) {
     appData.stockThreshold = d.stockThreshold || 30;
-        appData._dataSourceDate = d._dataSourceDate || "";
-        appData.button_names = d.button_names || {};
-  appData.variety_list = d.variety_list || [];
-  appData.alias_map = d.alias_map || {};
-  appData.sales_dict = d.sales_dict || {};
-  appData.divisor = Number(d.divisor || 1.8);
-  appData.customCols = d.customCols || [];
-  appData.autoCombineCfg = d.autoCombineCfg || JSON.parse(JSON.stringify(autoCombineList));
-  appData.pure_rows = d.pure_rows || [];
-  appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
-  appData.deletedStack = d.deletedStack || [];
-  appData.hasValidData = d.hasValidData || false;
-  appData.highlightedRows = new Set(d.highlightedRows || []);
-  appData.remainFilterValues = d.remainFilterValues || [];
-  appData.selectedColsForExport = new Set(d.selectedColsForExport || []);
-  appData.diffOldText = d.diffOldText || '';
-  appData.diffNewText = d.diffNewText || '';
-  appData.diffResultText = d.diffResultText || '';
-  appData.deleteHistory = d.deleteHistory || [];
+    appData._dataSourceDate = d._dataSourceDate || "";
+    appData._lastTableUpdateTime = d._lastTableUpdateTime || "";
+    appData.variety_prices = d.variety_prices || {};
+    appData.button_names = d.button_names || {};
+    appData.variety_list = d.variety_list || [];
+    appData.alias_map = d.alias_map || {};
+    appData.sales_dict = d.sales_dict || {};
+    appData.divisor = Number(d.divisor || 1.8);
+    appData.customCols = d.customCols || [];
+    appData.autoCombineCfg = d.autoCombineCfg || JSON.parse(JSON.stringify(autoCombineList));
+    appData.pure_rows = d.pure_rows || [];
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    appData.deletedStack = d.deletedStack || [];
+    appData.hasValidData = d.hasValidData || false;
+    appData.highlightedRows = new Set(d.highlightedRows || []);
+    appData.remainFilterValues = d.remainFilterValues || [];
+    appData.selectedColsForExport = new Set(d.selectedColsForExport || []);
+    appData.diffOldText = d.diffOldText || '';
+    appData.diffNewText = d.diffNewText || '';
+    appData.diffResultText = d.diffResultText || '';
+    appData.deleteHistory = d.deleteHistory || [];
 }
 
 function saveStorage() {
   const payload = {
-      stockThreshold: appData.stockThreshold,
-        _dataSourceDate: appData._dataSourceDate,
-        button_names: appData.button_names,
+    stockThreshold: appData.stockThreshold,
+    _dataSourceDate: appData._dataSourceDate,
+    _lastTableUpdateTime: appData._lastTableUpdateTime,
+    variety_prices: appData.variety_prices,
+    button_names: appData.button_names,
     variety_list: appData.variety_list, alias_map: appData.alias_map,
     sales_dict: appData.sales_dict, divisor: appData.divisor,
     customCols: appData.customCols, autoCombineCfg: appData.autoCombineCfg,
@@ -1882,10 +1840,8 @@ function saveStorage() {
     diffResultText: appData.diffResultText, deleteHistory: appData.deleteHistory || []
   };
   
-  // 1. 本地保存（立即生效，不影响离线使用）
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   
-  // 2. 异步推送到云端
   cloudDB.from('devices').upsert({
     id: DEVICE_ID,
     device_name: (navigator.userAgent.includes('Android') ? '安卓手机' : navigator.userAgent.includes('iPhone') ? '苹果手机' : navigator.userAgent.includes('Windows') ? 'Windows电脑' : '未知设备'),
@@ -1962,11 +1918,14 @@ function goPage(pageName) {
             if (dateEl) {
                 dateEl.innerText = appData._dataSourceDate ? "📅 本次数据来源时间：" + appData._dataSourceDate : "";
             }
+            const lastUpdateEl = document.getElementById("lastUpdateInfo");
+            if (lastUpdateEl) {
+                lastUpdateEl.innerText = appData._lastTableUpdateTime ? "⏱ 最近更新表格时间：" + appData._lastTableUpdateTime : "";
+            }
             renderTable();
-            // 如果销量刚导入完成，且需要弹窗，则执行检查并关闭开关
             if (appData._showZeroStockAlertOnTable) {
                 checkZeroStockAndAlert();
-                appData._showZeroStockAlertOnTable = false; // 弹过一次就关掉，以后进表格不再打扰
+                appData._showZeroStockAlertOnTable = false;
             }
         }
     } catch (e) {
@@ -1980,9 +1939,10 @@ function renderLibList() {
     wrap.innerHTML = "";
     appData.variety_list.forEach((v, idx) => {
         const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === v);
+        const price = appData.variety_prices[v] !== undefined ? appData.variety_prices[v] : '未设置';
         const div = document.createElement("div");
         div.className = "list-item";
-        div.innerHTML = `<div>${v}${aliases.length?" |别名:"+aliases.join(","):""}</div>
+        div.innerHTML = `<div>${v}${aliases.length?" |别名:"+aliases.join(","):""} |价格:${price}</div>
         <div>
         <button data-edit-idx="${idx}">编辑</button>
         <button data-del-idx="${idx}" style="background:#d9534f;">删除</button>
@@ -2001,6 +1961,7 @@ function openEditVariety(idx) {
     const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === name);
     document.getElementById("editVarName").value = name;
     document.getElementById("editVarAlias").value = aliases.join(",");
+    document.getElementById("editVarPrice").value = appData.variety_prices[name] !== undefined ? appData.variety_prices[name] : '';
     document.getElementById("editVarPopup").classList.remove("hide");
 }
 
@@ -2016,11 +1977,16 @@ function submitEditVariety() {
     let newName = document.getElementById("editVarName").value.trim();
     newName = normalizeVariety(newName);
     const aliasStr = document.getElementById("editVarAlias").value.trim();
+    const priceVal = document.getElementById("editVarPrice").value.trim();
     if (!newName) { alert("品种名不能为空"); return; }
+    
     Object.keys(appData.alias_map).forEach(k => {
         if (appData.alias_map[k] === oldName) delete appData.alias_map[k];
     });
     appData.variety_list[idx] = newName;
+    if (priceVal !== '') appData.variety_prices[newName] = Number(priceVal);
+    else delete appData.variety_prices[newName];
+
     if (aliasStr) {
         const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
         aliases.forEach(a => { appData.alias_map[a] = newName; });
@@ -2039,8 +2005,10 @@ function saveNewVariety() {
     let formal = document.getElementById("newVarName").value.trim();
     formal = normalizeVariety(formal);
     const aliasStr = document.getElementById("newVarAlias").value.trim();
+    const priceVal = document.getElementById("newVarPrice").value.trim();
     if (!formal) { alert("品种名不能为空"); return; }
     if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
+    if (priceVal !== '') appData.variety_prices[formal] = Number(priceVal);
     if (aliasStr) {
         const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
         aliases.forEach(a => { appData.alias_map[a] = formal; });
@@ -2048,6 +2016,7 @@ function saveNewVariety() {
     saveStorage();
     document.getElementById("newVarName").value = "";
     document.getElementById("newVarAlias").value = "";
+    document.getElementById("newVarPrice").value = "";
     renderLibList();
     alert("保存成功");
     if (appData.salesPendingLines && appData.salesPendingLines.length > 0) {
@@ -2100,6 +2069,7 @@ function checkZeroStockAndAlert() {
         alert(msg);
     }
 }
+
 function calcRow(row) {
     const key = `${row.品种}||${row.品相}||${row.规格||''}`;
     const sale = Number(appData.sales_dict[key] || 0);
@@ -2116,7 +2086,7 @@ function calcRow(row) {
     return { ...row, "销量": sale, "剩余库存": remain, "抖音": douyin, "微信": wechat };
 }
 
-const baseColsName = ["序号", "品种", "品相", "原始数量", "销量", "剩余库存", "抖音", "微信", "备注"];
+const baseColsName = ["序号", "卖价", "品种", "品相", "原始数量", "销量", "剩余库存", "抖音", "微信", "备注"];
 
 let remainMenuTimer = null;
 
@@ -2135,7 +2105,7 @@ function bindRemainHeaderLongPress() {
     const ths = document.querySelectorAll('#tableWrap th[data-col-index]');
     for (const th of ths) {
         const colIdx = parseInt(th.getAttribute('data-col-index'), 10);
-        if (colIdx === 5) {
+        if (colIdx === 6) { // 剩余库存列索引变为 6
             th.removeEventListener('pointerdown', remainPointerDown);
             th.removeEventListener('pointerup', remainPointerUp);
             th.removeEventListener('pointerleave', remainPointerLeave);
@@ -2172,7 +2142,7 @@ function bindSalesHeaderLongPress() {
     const ths = document.querySelectorAll('#tableWrap th[data-col-index]');
     for (const th of ths) {
         const colIdx = parseInt(th.getAttribute('data-col-index'), 10);
-        if (colIdx === 4) {
+        if (colIdx === 5) { // 销量列索引变为 5
             th.removeEventListener('pointerdown', salesPointerDown);
             th.removeEventListener('pointerup', salesPointerUp);
             th.removeEventListener('pointerleave', salesPointerLeave);
@@ -2380,6 +2350,28 @@ function exportSelectedColsToImage() {
     });
 }
 
+// 生成表格卖价辅助函数
+function getSalePrice(row) {
+    const varietyName = row.品种;
+    const phase = row.品相;
+    const spec = row.规格 || '';
+    // 组合的价格直接取品种库里的价格
+    if (phase === "组合") {
+        return appData.variety_prices[varietyName] !== undefined ? appData.variety_prices[varietyName] : null;
+    }
+    // 普通品种
+    const basePrice = appData.variety_prices[varietyName];
+    if (basePrice === undefined) return null;
+    // 带花价格 = basePrice
+    if (phase === "带花") return basePrice;
+    // 少量花价格 = basePrice - 1，变色龙例外
+    if (phase === "少量花") {
+        if (varietyName.includes("变色龙")) return basePrice;
+        return basePrice - 1;
+    }
+    return null;
+}
+
 function renderTable() {
     try {
         const searchWord = document.getElementById("searchInput").value.trim().toLowerCase();
@@ -2396,18 +2388,29 @@ function renderTable() {
         let rows = fullList.map((r, idx) => {
             const calc = calcRow(r);
             const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
-            const out = { 序号: idx + 1, 品种: displayName, 品相: r.品相, 原始数量: calc["原始数量"], 销量: calc["销量"], 剩余库存: calc["剩余库存"], 抖音: calc["抖音"], 微信: calc["微信"], 备注: r.备注 || '' };
+            const salePrice = getSalePrice(r);
+            const out = { 序号: idx + 1, 卖价: salePrice !== null ? salePrice : '', 品种: displayName, 品相: r.品相, 原始数量: calc["原始数量"], 销量: calc["销量"], 剩余库存: calc["剩余库存"], 抖音: calc["抖音"], 微信: calc["微信"], 备注: r.备注 || '' };
             appData.customCols.forEach(c => { if (out[c] === undefined) out[c] = ""; });
             out._raw = r;
+            out._hasPrice = salePrice !== null;
             return out;
         });
         if (searchWord) {
             rows = rows.filter(tr => String(tr.品种).toLowerCase().includes(searchWord) || String(tr.品相).toLowerCase().includes(searchWord));
         }
+        
+        // 收集未设置价格的品种
+        let noPriceItems = [];
+        rows.forEach(r => {
+            if (!r._hasPrice && r._raw.品相 !== "组合") {
+                const vn = r._raw.品种;
+                if (!noPriceItems.includes(vn)) noPriceItems.push(vn);
+            }
+        });
+
         const stat = document.getElementById("statPanel");
         const totalRows = rows.length;
         const threshold = appData.stockThreshold || 30;
-        // 注意：这里判断的是“剩余库存”是否大于等于阈值
         const daiCount = rows.filter(x => x.品相 === "带花" && !x._raw._isCombine && (Number(x.剩余库存)||0) >= threshold).length;
         const shaoCount = rows.filter(x => x.品相 === "少量花" && !x._raw._isCombine && (Number(x.剩余库存)||0) >= threshold).length;
         stat.innerHTML = `<div class="stat-item">总行数:${totalRows}</div><div class="stat-item">带花品≥${threshold}:${daiCount}</div><div class="stat-item">少量花品≥${threshold}:${shaoCount}</div>`;
@@ -2459,24 +2462,22 @@ function renderTable() {
             dataCols.forEach((c, ci) => {
                 const hide = appData.hidden_cols.has(ci) ? "style='display:none'" : "";
                 let val = row[c] ?? "";
-                const isNumber = ["原始数量","销量","剩余库存","抖音","微信"].includes(c);
+                const isNumber = ["原始数量","销量","剩余库存","抖音","微信","卖价"].includes(c);
                 const isSeq = c === "序号";
                 const actualDisabled = isSeq;
                 const type = isNumber ? "number" : "text";
                 if (isSeq) val = row.序号;
-                                let cellCls = (selectedCol === ci) ? 'col-selected' : '';
-                // ===== 新增判断：剩余库存<=0则标红 =====
+                if (c === "卖价" && val === null) val = "";
+                let cellCls = (selectedCol === ci) ? 'col-selected' : '';
                 if (c === "剩余库存" && (Number(val) || 0) <= 0) {
                     cellCls += " cell-red";
                 }
-                // ==========================================
-
                 html += `<td ${hide} class="${cellCls}" data-rowindex="${ri}" data-colindex="${ci}" style="position:relative;">
                 <input data-row="${ri}" data-col="${ci}" type="${type}" value="${val}" ${actualDisabled?'disabled':''}>
                 ${ci === 0 ? '<div class="row-resize-handle"></div>' : ''}
                 </td>`;
             });
-            html += `<td><button class="move-btn" data-up="${ri}">▲</button><button class="move-btn" data-down="${ri}">▼</button><button class="move-btn" data-top="${ri}">置顶</button><button class="move-btn" data-bottom="${ri}">置底</button><button class="del-row" data-del="${ri}">-删</button></td>`;
+            html += `<td><button class="move-btn" data-up="${ri}">▲</button><button class="move-btn" data-down="${ri}">▼</button></td>`;
             html += `</tr>`;
         });
         html += `</tbody></table>`;
@@ -2493,6 +2494,15 @@ function renderTable() {
         bindResizeHandles();
         bindRemainHeaderLongPress();
         bindSalesHeaderLongPress();
+
+        // 处理未设置价格提示
+        if (noPriceItems.length > 0) {
+            if (confirm(`以下品种未设置价格：\n${noPriceItems.slice(0, 10).join('、')}\n是否去品种库添加价格？`)) {
+                goPage('lib');
+                document.getElementById('newVarName').value = noPriceItems[0];
+                document.getElementById('newVarPrice').focus();
+            }
+        }
     } catch (e) {
         console.error("renderTable error:", e);
         alert("表格渲染失败，请检查数据或刷新页面");
@@ -2502,9 +2512,6 @@ function renderTable() {
 function bindTableEvents() {
     document.querySelectorAll("[data-up]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.up), 'up'));
     document.querySelectorAll("[data-down]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.down), 'down'));
-    document.querySelectorAll("[data-top]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.top), 'top'));
-    document.querySelectorAll("[data-bottom]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.bottom), 'bottom'));
-    document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => deleteRow(Number(b.dataset.del)));
     document.querySelectorAll("#tableWrap input[data-row]").forEach(inp => {
         inp.onchange = function() { cellEdit(Number(this.dataset.row), Number(this.dataset.col), this.value); };
     });
@@ -2635,7 +2642,15 @@ function cellEdit(ri, ci, val) {
     const dataCols = [...baseColsName, ...appData.customCols];
     const key = dataCols[ci];
     if (!key || key === "序号") { renderTable(); return; }
-    if (key === "原始数量") {
+    
+    if (key === "卖价") {
+        const newVal = Number(val) || 0;
+        const varietyName = r.品种;
+        appData.variety_prices[varietyName] = newVal;
+        saveStorage(); 
+        renderTable(); 
+        return;
+    } else if (key === "原始数量") {
         const newVal = Number(val) || 0;
         r.原始数量 = newVal;
         if (r.品相 === "组合" && r._isCombine) recalculateCombines(idx);
@@ -2669,93 +2684,25 @@ function cellEdit(ri, ci, val) {
     saveStorage(); renderTable();
 }
 
-function openTableFuncPopup() { document.getElementById("tableFuncPopup").classList.remove("hide"); document.getElementById("funcColInput").value = ""; }
-function closeTableFuncPopup() { document.getElementById("tableFuncPopup").classList.add("hide"); }
-
-function getInputCols() {
-    const raw = document.getElementById("funcColInput").value.trim();
-    if (!raw) { alert("请输入列号"); return null; }
-    const parts = raw.split(/[,，\s]+/).map(s => s.trim()).filter(s => s.length > 0);
-    const nums = [];
-    for (const p of parts) {
-        const n = parseInt(p, 10);
-        if (!isNaN(n) && n >= 0) nums.push(n);
-    }
-    if (nums.length === 0) { alert("请输入有效的数字列号，用逗号分隔"); return null; }
-    return nums;
+function hideSelectedCol() {
+    if (selectedCol === null) { alert("请先点击表头选中一列"); return; }
+    appData.hidden_cols.add(selectedCol);
+    lastHiddenCol = selectedCol;
+    saveStorage();
+    renderTable();
+    showToast('✅ 已隐藏列');
 }
 
-function hideCol() {
-    const cols = getInputCols();
-    if (cols === null) return;
-    for (const c of cols) appData.hidden_cols.add(c);
-    renderTable(); closeTableFuncPopup();
-}
-
-function unHideCol() {
-    const cols = getInputCols();
-    if (cols === null) return;
-    for (const c of cols) appData.hidden_cols.delete(c);
-    renderTable(); closeTableFuncPopup();
-}
-
-function getInputCol() {
-    const raw = document.getElementById("funcColInput").value.trim();
-    if (!raw) { alert("请输入列号"); return null; }
-    const n = parseInt(raw, 10);
-    if (isNaN(n) || n < 0) { alert("请输入有效的数字列号"); return null; }
-    return n;
-}
-
-function sortByCol() {
-    const c = getInputCol();
-    if (c === null) return;
-    const dataCols = [...baseColsName, ...appData.customCols];
-    const key = dataCols[c];
-    if (!key) { alert("列不存在"); return; }
-    const full = assembleFullData();
-    const normalRows = full.filter(r => r.品相 !== "组合");
-    const combineRows = full.filter(r => r.品相 === "组合");
-    normalRows.sort((a, b) => {
-        let va = a[key], vb = b[key];
-        if (typeof va === "number") return vb - va;
-        return String(vb).localeCompare(String(va), "zh-CN");
-    });
-    appData.pure_rows = [...normalRows, ...combineRows];
-    if (!appData._unsortedBackup) appData._unsortedBackup = JSON.parse(JSON.stringify(appData.original_pure_rows));
-    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
-    selectedRows.clear(); renderTable(); closeTableFuncPopup(); saveStorage();
-}
-
-function restoreTableOrder() {
-    if (appData._unsortedBackup) {
-        appData.pure_rows = JSON.parse(JSON.stringify(appData._unsortedBackup));
-        appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
-        appData._unsortedBackup = null;
-        selectedRows.clear(); renderTable(); closeTableFuncPopup(); saveStorage();
-    } else { alert("没有可恢复的原始顺序"); closeTableFuncPopup(); }
-}
-
-function openBatchPopup() { document.getElementById("batchPopup").classList.remove("hide"); }
-function closeBatchPopup() { document.getElementById("batchPopup").classList.add("hide"); }
-
-function batchSetPhase() {
-    const v = document.getElementById("batchPhase").value.trim();
-    if (!v) { alert("请输入品相"); return; }
-    appData.pure_rows.forEach(r => r.品相 = v);
-    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
-    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
-    selectedRows.clear(); renderTable(); saveStorage(); closeBatchPopup();
-}
-
-function batchClearSales() {
-    appData.sales_dict = {};
-    saveStorage(); renderTable(); closeBatchPopup();
-    alert("已清零所有销量");
+function unhideLastCol() {
+    if (lastHiddenCol === null) { alert("没有刚刚隐藏的列"); return; }
+    appData.hidden_cols.delete(lastHiddenCol);
+    lastHiddenCol = null;
+    saveStorage();
+    renderTable();
+    showToast('✅ 已取消隐藏');
 }
 
 function bindGlobalButtons() {
-    // 点击统计面板修改阈值
     const statPanelEl = document.getElementById("statPanel");
     if (statPanelEl) {
         statPanelEl.addEventListener('click', () => {
@@ -2764,8 +2711,8 @@ function bindGlobalButtons() {
                 const val = parseInt(newThresh, 10);
                 if (!isNaN(val) && val >= 0) {
                     appData.stockThreshold = val;
-                    saveStorage(); // 保存到云端，手机和电脑同时生效
-                    renderTable(); // 重新渲染表格以更新统计
+                    saveStorage();
+                    renderTable();
                     showToast('✅ 阈值已修改为 ' + val);
                 } else {
                     alert("请输入有效的非负整数！");
@@ -2779,7 +2726,7 @@ function bindGlobalButtons() {
         await loadStorage();
         showToast('☁️ 云端同步完成');
     });
-        document.getElementById("btnPullData").addEventListener('click', forcePullFromCloud);
+    document.getElementById("btnPullData").addEventListener('click', forcePullFromCloud);
     document.getElementById("btnLib").addEventListener('click', () => goPage('lib'));
     document.getElementById("btnInputData").addEventListener('click', () => goPage('inputData'));
     document.getElementById("btnSalesPage").addEventListener('click', () => goPage('salesPage'));
@@ -2821,13 +2768,11 @@ function bindGlobalButtons() {
     document.getElementById("btnDiffDeleteData").addEventListener('click', deleteDiffData);
 
     document.getElementById("tableBackHome").addEventListener('click', () => goPage('home'));
-    document.getElementById("btnTableFunc").addEventListener('click', openTableFuncPopup);
     document.getElementById("btnAddCol").addEventListener('click', addCustomCol);
-    document.getElementById("btnDelCol").addEventListener('click', delCustomCol);
     document.getElementById("btnDelSelectedRows").addEventListener('click', deleteSelectedRows);
     document.getElementById("btnUndoTableDelete").addEventListener('click', undoTableDelete);
-    document.getElementById("btnOpenExportPop").addEventListener('click', openExportPopup);
-    document.getElementById("btnOpenBatch").addEventListener('click', openBatchPopup);
+    document.getElementById("btnHideSelectedCol").addEventListener('click', hideSelectedCol);
+    document.getElementById("btnUnhideCol").addEventListener('click', unhideLastCol);
     document.getElementById("btnManualAddRow").addEventListener('click', manualAddRow);
     document.getElementById("btnClearHighlight").addEventListener('click', clearHighlight);
     document.getElementById("btnClearRemoved").addEventListener('click', clearRemoved);
@@ -2838,17 +2783,6 @@ function bindGlobalButtons() {
 
     document.getElementById("btnPopJumpLib").addEventListener('click', jumpToLibFromPop);
     document.getElementById("btnPopCloseUnknown").addEventListener('click', closeUnknownVarPop);
-
-    document.getElementById("btnHideCol").addEventListener('click', hideCol);
-    document.getElementById("btnUnhideCol").addEventListener('click', unHideCol);
-    document.getElementById("btnSortCol").addEventListener('click', sortByCol);
-    document.getElementById("btnRestoreOrder").addEventListener('click', restoreTableOrder);
-    document.getElementById("btnCloseTableFunc").addEventListener('click', closeTableFuncPopup);
-
-    document.getElementById("btnBatchSetPhase").addEventListener('click', batchSetPhase);
-    document.getElementById("btnBatchClearSales").addEventListener('click', batchClearSales);
-    document.getElementById("btnCloseBatch").addEventListener('click', closeBatchPopup);
-
     document.getElementById("btnSubmitEditVar").addEventListener('click', submitEditVariety);
     document.getElementById("btnCloseEditVar").addEventListener('click', closeEditVarPopup);
 
@@ -2888,18 +2822,15 @@ function applyCustomButtonNames() {
     }
 }
 
-// ===== 绑定长按修改名称事件（移动端优化版） =====
+// ===== 绑定长按修改名称事件 =====
 function bindLongPressToButtons() {
     document.querySelectorAll('.home-btn').forEach(btn => {
         let pressTimer = null;
-        let isLongPress = false; // 用来标记是否触发了长按
+        let isLongPress = false;
         
-        // 1. 按下时开始计时
         btn.addEventListener('pointerdown', (e) => {
             isLongPress = false;
-            // 阻止默认的文本选择行为（部分安卓机有效）
             if (e.cancelable) e.preventDefault(); 
-            
             pressTimer = setTimeout(() => {
                 isLongPress = true;
                 const currentText = btn.innerText.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
@@ -2912,10 +2843,9 @@ function bindLongPressToButtons() {
                     showToast('✅ 按钮名称已修改');
                 }
                 pressTimer = null;
-            }, 800); // 长按 0.8 秒触发
+            }, 800);
         });
         
-        // 2. 松开、移出或取消时，清除计时器
         btn.addEventListener('pointerup', () => { 
             if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
         });
@@ -2926,7 +2856,6 @@ function bindLongPressToButtons() {
             if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
         });
         
-        // 3. 如果是长按触发的操作，阻止它触发正常的“点击”行为
         btn.addEventListener('click', (e) => {
             if (isLongPress) {
                 e.preventDefault();
@@ -2936,7 +2865,6 @@ function bindLongPressToButtons() {
     });
 }
 
-// ===== 启动程序 =====
 async function initApp() {
     await loadStorage();
     bindGlobalButtons();
