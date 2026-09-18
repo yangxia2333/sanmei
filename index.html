@@ -357,7 +357,7 @@ let appData = {
 
 let selectedRows = new Set();
 let selectedCol = null;
-let lastHiddenCol = null; // 记录上次隐藏的列
+let lastHiddenCols = []; // 记录上次隐藏的列（改为数组，支持多列）
 let dragState = { isDrag: false, thEl: null, startX: 0, startW: 0, pointerId: null };
 let rowDragState = { isDrag: false, trEl: null, startY: 0, startH: 0, pureIdx: -1, pointerId: null };
 
@@ -1912,16 +1912,28 @@ function goPage(pageName) {
                 resultBox.parentNode.insertBefore(stats, resultBox);
             }
         }
-        if (pageName === 'table') {
+                if (pageName === 'table') {
             renderTable();
+
+            // ===== 只在进入表格页面时检查一次未设置价格的品种 =====
+            let noPriceItems = [];
+            appData.pure_rows.forEach(r => {
+                const vn = r.品种;
+                if (appData.variety_prices[vn] === undefined && !noPriceItems.includes(vn)) {
+                    noPriceItems.push(vn);
+                }
+            });
+            if (noPriceItems.length > 0) {
+                if (confirm(`以下品种未设置价格：\n${noPriceItems.slice(0, 10).join('、')}\n是否去品种库添加价格？`)) {
+                    goPage('lib');
+                    document.getElementById('newVarName').value = noPriceItems[0];
+                    document.getElementById('newVarPrice').focus();
+                }
+            }
+            // ========================================================
+
             const dateEl = document.getElementById("dataSourceInfo");
-            if (dateEl) {
-                dateEl.innerText = appData._dataSourceDate ? "📅 本次数据来源时间：" + appData._dataSourceDate : "";
-            }
-            const lastUpdateEl = document.getElementById("lastUpdateInfo");
-            if (lastUpdateEl) {
-                lastUpdateEl.innerText = appData._lastTableUpdateTime ? "⏱ 最近更新表格时间：" + appData._lastTableUpdateTime : "";
-            }
+            // ... 下面原来的代码保持不动 ...
             renderTable();
             if (appData._showZeroStockAlertOnTable) {
                 checkZeroStockAndAlert();
@@ -1978,27 +1990,43 @@ function submitEditVariety() {
     newName = normalizeVariety(newName);
     const aliasStr = document.getElementById("editVarAlias").value.trim();
     const priceVal = document.getElementById("editVarPrice").value.trim();
+    
     if (!newName) { alert("品种名不能为空"); return; }
     
+    // 处理价格
+    let price = undefined;
+    if (priceVal !== '') {
+        price = Number(priceVal);
+        if (isNaN(price) || price < 0) { alert("请输入有效的非负价格"); return; }
+    }
+    
+    // 更新品种名和别名
     Object.keys(appData.alias_map).forEach(k => {
         if (appData.alias_map[k] === oldName) delete appData.alias_map[k];
     });
     appData.variety_list[idx] = newName;
-    if (priceVal !== '') appData.variety_prices[newName] = Number(priceVal);
-    else delete appData.variety_prices[newName];
-
     if (aliasStr) {
         const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
         aliases.forEach(a => { appData.alias_map[a] = newName; });
     }
-    saveStorage();
-    closeEditVarPopup();
-    renderLibList();
+    
+    // 更新价格
+    if (price !== undefined) {
+        appData.variety_prices[newName] = price;
+    } else {
+        delete appData.variety_prices[newName];
+    }
+    
+    // 同步表格中的品种名
     appData.pure_rows.forEach(r => { if (r.品种 === oldName) r.品种 = newName; });
     appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
     appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
-    renderTable();
+    
     saveStorage();
+    closeEditVarPopup();
+    renderLibList();
+    renderTable();
+    alert("保存成功！");
 }
 
 function saveNewVariety() {
@@ -2399,15 +2427,6 @@ function renderTable() {
             rows = rows.filter(tr => String(tr.品种).toLowerCase().includes(searchWord) || String(tr.品相).toLowerCase().includes(searchWord));
         }
         
-        // 收集未设置价格的品种
-        let noPriceItems = [];
-        rows.forEach(r => {
-            if (!r._hasPrice && r._raw.品相 !== "组合") {
-                const vn = r._raw.品种;
-                if (!noPriceItems.includes(vn)) noPriceItems.push(vn);
-            }
-        });
-
         const stat = document.getElementById("statPanel");
         const totalRows = rows.length;
         const threshold = appData.stockThreshold || 30;
@@ -2495,14 +2514,6 @@ function renderTable() {
         bindRemainHeaderLongPress();
         bindSalesHeaderLongPress();
 
-        // 处理未设置价格提示
-        if (noPriceItems.length > 0) {
-            if (confirm(`以下品种未设置价格：\n${noPriceItems.slice(0, 10).join('、')}\n是否去品种库添加价格？`)) {
-                goPage('lib');
-                document.getElementById('newVarName').value = noPriceItems[0];
-                document.getElementById('newVarPrice').focus();
-            }
-        }
     } catch (e) {
         console.error("renderTable error:", e);
         alert("表格渲染失败，请检查数据或刷新页面");
@@ -2685,21 +2696,28 @@ function cellEdit(ri, ci, val) {
 }
 
 function hideSelectedCol() {
-    if (selectedCol === null) { alert("请先点击表头选中一列"); return; }
-    appData.hidden_cols.add(selectedCol);
-    lastHiddenCol = selectedCol;
+    if (appData.selectedColsForExport.size === 0) {
+        alert("请先在表头勾选需要隐藏的列（复选框）");
+        return;
+    }
+    lastHiddenCols = Array.from(appData.selectedColsForExport);
+    lastHiddenCols.forEach(col => appData.hidden_cols.add(col));
+    appData.selectedColsForExport.clear(); // 清空勾选
     saveStorage();
     renderTable();
-    showToast('✅ 已隐藏列');
+    showToast('✅ 已隐藏选中列');
 }
 
 function unhideLastCol() {
-    if (lastHiddenCol === null) { alert("没有刚刚隐藏的列"); return; }
-    appData.hidden_cols.delete(lastHiddenCol);
-    lastHiddenCol = null;
+    if (lastHiddenCols.length === 0) {
+        alert("没有刚刚隐藏的列");
+        return;
+    }
+    lastHiddenCols.forEach(col => appData.hidden_cols.delete(col));
+    lastHiddenCols = [];
     saveStorage();
     renderTable();
-    showToast('✅ 已取消隐藏');
+    showToast('? 已取消隐藏');
 }
 
 function bindGlobalButtons() {
