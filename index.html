@@ -1588,7 +1588,10 @@ function updateTableFromDiff() {
                     const existRow = findRowByVarietyPhaseIgnoreSpec(finalVariety, phase);
                     if (existRow) {
                         existRow.原始数量 = newQty;
-                        appData._diffUpdatedCells.push(`${existRow.品种}||${existRow.品相}||${existRow.规格||''}`);
+                        existRow._updatedHighlight = true;   // 新增：粉色标记
+                        existRow._diffUpdated = true;        // 新增：黄色标记
+                        existRow.规格 = spec;
+                        existRow._removed = false;
                         existRow.规格 = spec;
                         existRow._removed = false;
                         const key = `${finalVariety}||${phase}`;
@@ -1618,7 +1621,10 @@ function updateTableFromDiff() {
                     const existRow = findRowByVarietyPhaseIgnoreSpec(finalVariety, phase);
                     if (existRow) {
                         existRow.原始数量 = newQty;
-                        appData._diffUpdatedCells.push(`${existRow.品种}||${existRow.品相}||${existRow.规格||''}`);
+                        existRow._updatedHighlight = true;   // 新增：粉色标记
+                        existRow._diffUpdated = true;        // 新增：黄色标记
+                        existRow.规格 = spec;
+                        existRow._removed = false;
                         existRow.规格 = spec;
                         existRow._removed = false;
                         const key = `${finalVariety}||${phase}`;
@@ -1664,7 +1670,8 @@ function updateTableFromDiff() {
                     _isSystemCombine: (item.phase === "组合"), 规格: item.spec || '', _removed: false
                 };
                 appData.pure_rows.push(newRow);
-                appData._diffUpdatedCells.push(`${newRow.品种}||${newRow.品相}||${newRow.规格||''}`);
+                newRow._updatedHighlight = true;   // 新增：粉色标记
+                newRow._diffUpdated = true;        // 新增：黄色标记
                 addedKeys.push(`${item.variety}||${item.phase}`);
             }
         }
@@ -1721,7 +1728,11 @@ function clearRemoved() {
 
 function clearHighlight() {
     appData.highlightedRows = new Set();
-    appData._diffUpdatedCells = []; // 清空黄色标记
+    appData._diffUpdatedCells = [];
+    appData.pure_rows.forEach(r => { 
+        delete r._updatedHighlight; 
+        delete r._diffUpdated; 
+    });
     renderTable();
 }
 
@@ -2513,7 +2524,7 @@ function renderTable() {
             }
             const pureIdx = findPureIndex(rawRow);
             if (pureIdx !== -1 && selectedRows.has(pureIdx)) cls.push('selected-row');
-            if (pureIdx !== -1 && appData.highlightedRows.has(pureIdx)) cls.push('updated-row');
+                        if (rawRow._updatedHighlight) cls.push('updated-row');
             const rowHeight = appData.pure_rows[pureIdx]?._rowHeight || 18;
             html += `<tr ${cls.length?`class="${cls.join(' ')}"`:''} style="height:${rowHeight}px;">`;
             const checked = (pureIdx !== -1 && selectedRows.has(pureIdx)) ? 'checked' : '';
@@ -2528,11 +2539,11 @@ function renderTable() {
                 if (isSeq) val = row.序号;
                 if (c === "卖价" && val === null) val = "";
                 let cellCls = (selectedCol === ci) ? 'col-selected' : '';
-                    // ===== 新增：差异对比中修改过原始数量的单元格标黄 =====
-    if (c === "原始数量" && appData._diffUpdatedCells && appData._diffUpdatedCells.includes(`${rawRow.品种}||${rawRow.品相}||${rawRow.规格||''}`)) {
-        cellCls += " cell-yellow";
-    }
-    // ===================================================
+                // ===== 新增：差异对比中修改过原始数量的单元格标黄 =====
+                if (c === "原始数量" && rawRow._diffUpdated) {
+                    cellCls += " cell-yellow";
+                }
+                // ===================================================
                 if (c === "剩余库存" && (Number(val) || 0) <= 0) {
                     cellCls += " cell-red";
                 }
