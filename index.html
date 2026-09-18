@@ -1587,7 +1587,7 @@ function updateTableFromDiff() {
                     const existRow = findRowByVarietyPhaseIgnoreSpec(finalVariety, phase);
                     if (existRow) {
                         existRow.原始数量 = newQty;
-                                                    appData._diffUpdatedCells.push(`${finalVariety}||${phase}||${spec || ''}`);
+                        appData._diffUpdatedCells.push(`${existRow.品种}||${existRow.品相}||${existRow.规格||''}`);
                         existRow.规格 = spec;
                         existRow._removed = false;
                         const key = `${finalVariety}||${phase}`;
@@ -1617,7 +1617,7 @@ function updateTableFromDiff() {
                     const existRow = findRowByVarietyPhaseIgnoreSpec(finalVariety, phase);
                     if (existRow) {
                         existRow.原始数量 = newQty;
-                                                    appData._diffUpdatedCells.push(`${finalVariety}||${phase}||${spec || ''}`);
+                        appData._diffUpdatedCells.push(`${existRow.品种}||${existRow.品相}||${existRow.规格||''}`);
                         existRow.规格 = spec;
                         existRow._removed = false;
                         const key = `${finalVariety}||${phase}`;
@@ -1663,7 +1663,7 @@ function updateTableFromDiff() {
                     _isSystemCombine: (item.phase === "组合"), 规格: item.spec || '', _removed: false
                 };
                 appData.pure_rows.push(newRow);
-                                appData._diffUpdatedCells.push(`${item.variety}||${item.phase}||${item.spec || ''}`);
+                appData._diffUpdatedCells.push(`${newRow.品种}||${newRow.品相}||${newRow.规格||''}`);
                 addedKeys.push(`${item.variety}||${item.phase}`);
             }
         }
@@ -2381,26 +2381,44 @@ function exportSelectedColsToImage() {
     });
 }
 
-// 生成表格卖价辅助函数
-function getSalePrice(row) {
-    const varietyName = row.品种;
-    const phase = row.品相;
-    const spec = row.规格 || '';
-    // 组合的价格直接取品种库里的价格
-    if (phase === "组合") {
-        return appData.variety_prices[varietyName] !== undefined ? appData.variety_prices[varietyName] : null;
+function fillExportText() {
+    const mode = document.querySelector('input[name="exportMode"]:checked').value;
+    const full = assembleFullData();
+    const buf = [];
+    if (mode === "backup") {
+        buf.push("品种\t品相\t卖价\t原始数量\t销量\t剩余库存\t抖音\t微信\t备注");
+        full.forEach(r => {
+            const calc = calcRow(r);
+            const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
+            const salePrice = getSalePrice(r);
+            buf.push(`${displayName}\t${r.品相}\t${salePrice !== null ? salePrice : ''}\t${r.原始数量}\t${calc["销量"]}\t${calc["剩余库存"]}\t${calc["抖音"]}\t${calc["微信"]}\t${r.备注||""}`);
+        });
+    } else {
+        const nr = full.filter(r => !r.下架);
+        const hasShao = nr.some(x => x.品相 === "少量花"), hasDai = nr.some(x => x.品相 === "带花");
+        if (hasShao) {
+            buf.push("少量花");
+            nr.filter(x => x.品相 === "少量花").forEach(r => {
+                const dn = r.规格 ? r.品种 + r.规格 : r.品种;
+                buf.push(`【${dn}】${r.原始数量}${r.备注||""}`);
+            });
+        }
+        if (hasDai) {
+            buf.push("带花");
+            nr.filter(x => x.品相 === "带花").forEach(r => {
+                const dn = r.规格 ? r.品种 + r.规格 : r.品种;
+                buf.push(`${dn}${r.原始数量}${r.备注||""}`);
+            });
+        }
+        const combRows = nr.filter(x => x.品相 === "组合");
+        if (combRows.length > 0) {
+            buf.push("组合");
+            combRows.forEach(r => {
+                buf.push(`${r.品种}\t${r.原始数量}`);
+            });
+        }
     }
-    // 普通品种
-    const basePrice = appData.variety_prices[varietyName];
-    if (basePrice === undefined) return null;
-    // 带花价格 = basePrice
-    if (phase === "带花") return basePrice;
-    // 少量花价格 = basePrice - 1，变色龙例外
-    if (phase === "少量花") {
-        if (varietyName.includes("变色龙")) return basePrice;
-        return basePrice - 1;
-    }
-    return null;
+    document.getElementById("exportTextarea").value = buf.join("\n");
 }
 
 function renderTable() {
