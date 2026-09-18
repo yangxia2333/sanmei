@@ -2717,12 +2717,20 @@ function cellEdit(ri, ci, val) {
         saveStorage(); 
         renderTable(); 
         return;
-    } else if (key === "原始数量") {
+        } else if (key === "原始数量") {
         const newVal = Number(val) || 0;
+        const oldDiffFlag = r._diffUpdated; // 记住原来的黄色标记
+        const oldHighlightFlag = r._updatedHighlight; // 记住原来的粉色标记
         r.原始数量 = newVal;
         if (r.品相 === "组合" && r._isCombine) recalculateCombines(idx);
         else if (r.品相 === "少量花" && !r._isCombine) recalculateCombines(null);
-        appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows); // 新增：重新排序
+        appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+        // 重新找到当前行（排序后索引变了），恢复标记
+        const curRow = appData.pure_rows.find(x => x.品种 === r.品种 && x.品相 === r.品相 && x._isCombine === r._isCombine && (x.规格||'') === (r.规格||''));
+        if (curRow) {
+            if (oldDiffFlag) curRow._diffUpdated = true;
+            if (oldHighlightFlag) curRow._updatedHighlight = true;
+        }
         appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
         saveStorage(); renderTable(); return;
     } else if (key === "销量") {
