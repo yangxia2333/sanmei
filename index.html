@@ -757,6 +757,7 @@ function syncCombines() {
 function assembleFullData() { return appData.pure_rows; }
 
 function findPureIndex(target) {
+        if (!target) return -1;
     for (let i = 0; i < appData.pure_rows.length; i++) {
         const r = appData.pure_rows[i];
         if (r.品种 === target.品种 && r.品相 === target.品相 &&
@@ -2102,6 +2103,7 @@ function checkZeroStockAndAlert() {
 }
 
 function calcRow(row) {
+        if (!row) return {};
     const key = `${row.品种}||${row.品相}||${row.规格||''}`;
     const sale = Number(appData.sales_dict[key] || 0);
     const rawNum = Number(row.原始数量) || 0;
@@ -2421,10 +2423,27 @@ function fillExportText() {
     document.getElementById("exportTextarea").value = buf.join("\n");
 }
 
+// 生成表格卖价辅助函数
+function getSalePrice(row) {
+    if (!row) return null; // 新增：防止空行报错
+    const varietyName = row.品种;
+    const phase = row.品相;
+    if (phase === "组合") {
+        return appData.variety_prices[varietyName] !== undefined ? appData.variety_prices[varietyName] : null;
+    }
+    const basePrice = appData.variety_prices[varietyName];
+    if (basePrice === undefined) return null;
+    if (phase === "带花") return basePrice;
+    if (phase === "少量花") {
+        if (varietyName.includes("变色龙")) return basePrice;
+        return basePrice - 1;
+    }
+    return null;
+}
 function renderTable() {
     try {
         const searchWord = document.getElementById("searchInput").value.trim().toLowerCase();
-        let fullList = assembleFullData();
+        let fullList = assembleFullData().filter(r => r);
         const dataCols = [...baseColsName, ...appData.customCols];
         if (appData.remainFilterValues && appData.remainFilterValues.length > 0) {
             const filterSet = new Set(appData.remainFilterValues);
