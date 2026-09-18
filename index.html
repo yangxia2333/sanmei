@@ -29,7 +29,20 @@ td .row-resize-handle:active{background:rgba(43,101,236,0.3);}
 .pop-mask{position:fixed;inset:0;background:#00000060;display:flex;align-items:center;justify-content:center;padding:12px;z-index:99;}
 tr td.cell-yellow { background-color: #ffff00 !important; color: #000000 !important; }
 tr.updated-row td.cell-yellow { background-color: #ffff00 !important; color: #000000 !important; }
-td.cell-var-click { background-color: #ff0000 !important; color: #ffffff !important; }
+td.cell-var-click {
+    background-color: #ff0000 !important;
+    border-radius: 0 !important;
+}
+td.cell-var-click input {
+    color: #ffffff !important;
+    background-color: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    border-radius: 0 !important;
+}
 td.cell-red {background-color: #ff0000 !important;color: #ffffff !important;}
 .pop-win{background:#fff;padding:14px;border-radius:10px;width:100%;max-width:380px;max-height:85vh;overflow:auto;}
 .hide{display:none !important;}
@@ -1526,7 +1539,6 @@ function doParse() {
             }
         }
         appData._dataSourceDate = new Date().toLocaleString('zh-CN', {hour12: false});
-        appData._lastTableUpdateTime = appData._dataSourceDate;
         appData.pure_rows = parsed;
         syncCombines();
         appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
@@ -1557,7 +1569,7 @@ function processSalesLine(index) {
     const lines = appData.salesAllLines;
     if (index >= lines.length) {
         appData._showZeroStockAlertOnTable = true;
-        appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false});
+        appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false}) + '（销量）';
         renderTable();
         saveStorage();
         alert("所有销量导入完成！请进入表格查看结果。");
@@ -1783,7 +1795,6 @@ function runDiffCompare() {
     appData.diffOldText = oldTxt;
     appData.diffNewText = newTxt;
     appData.diffResultText = resultText;
-    appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false});
     saveStorage();
 }
 
@@ -1943,7 +1954,7 @@ function updateTableFromDiff() {
     appData.diffOldText = document.getElementById("diffOld").value;
     appData.diffNewText = document.getElementById("diffNew").value;
     appData.diffResultText = document.getElementById("diffResult").innerText;
-    appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false});
+    appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false}) + '（差异对比）';
     saveStorage();
     renderTable();
     let msg = `✅ 表格已更新。`;
@@ -2110,7 +2121,7 @@ function applyLoadedData(d) {
 // ============================================================
 // ★ 问题4：保存时同时写入 sync_history
 // ============================================================
-function saveStorage() {
+function saveStorage(isManualSync = false) {
     const payload = {
         thresholdDai: appData.thresholdDai,
         thresholdShao: appData.thresholdShao,
@@ -2138,11 +2149,13 @@ function saveStorage() {
     }).then(({ error }) => {
         if (error) console.warn('云端保存失败（本地已保存）:', error.message);
     });
-    cloudDB.from('sync_history').insert({
-        device_name: devName, data: payload
-    }).then(({ error }) => {
-        if (error) console.warn('历史记录保存失败:', error.message);
-    });
+        if (isManualSync) {
+        cloudDB.from('sync_history').insert({
+            device_name: devName, data: payload
+        }).then(({ error }) => {
+            if (error) console.warn('历史记录保存失败:', error.message);
+        });
+    }
 }
 
 function goPage(pageName) {
@@ -2982,7 +2995,7 @@ function bindGlobalButtons() {
     }
     document.getElementById("btnSaveAll").addEventListener('click', saveAllData);
     document.getElementById("btnCloudSync").addEventListener('click', async () => {
-        await saveStorage();
+                await saveStorage(true);
         await loadStorage();
         showToast('☁️ 云端同步完成');
     });
