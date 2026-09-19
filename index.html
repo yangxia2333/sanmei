@@ -2989,10 +2989,19 @@ function hideSelectedCol() {
 }
 
 function unhideLastCol() {
-    if (lastHiddenCols.length === 0) { alert("没有刚刚隐藏的列"); return; }
-    lastHiddenCols.forEach(col => appData.hidden_cols.delete(col));
+    // 如果历史记录丢失，就尝试恢复所有当前被隐藏的列
+    let targetCols = lastHiddenCols;
+    if (targetCols.length === 0) {
+        targetCols = Array.from(appData.hidden_cols);
+    }
+    if (targetCols.length === 0) { 
+        alert("当前没有隐藏的列"); 
+        return; 
+    }
+    targetCols.forEach(col => appData.hidden_cols.delete(col));
     lastHiddenCols = [];
-    saveStorage(); renderTable();
+    saveStorage(); 
+    renderTable();
     showToast('✅ 已取消隐藏');
 }
 
