@@ -1402,11 +1402,12 @@ function snapDetailDownload() {
             if (!keepIdx.includes(i)) cells[i].parentNode.removeChild(cells[i]);
         }
     });
-    container.querySelectorAll('th, td').forEach(cell => {
+        container.querySelectorAll('th, td').forEach(cell => {
         cell.style.border = '1px solid #ddd';
-        cell.style.padding = '6px 10px';
+        cell.style.padding = '2px 4px'; // 紧凑的内边距
         cell.style.textAlign = 'center';
         cell.style.whiteSpace = 'nowrap';
+        cell.style.minWidth = 'auto';   // 防止表头被撑开
     });
     document.body.appendChild(container);
     html2canvas(container, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false }).then(canvas => {
@@ -2622,13 +2623,14 @@ function exportSelectedColsToImage() {
     cloneTable.style.width = 'auto';
     cloneTable.style.fontSize = '14px';
     cloneTable.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-    cloneTable.querySelectorAll('th, td').forEach(cell => {
-        cell.style.border = '1px solid #ddd';
-        cell.style.padding = '6px 10px';
-        cell.style.textAlign = 'center';
-        cell.style.whiteSpace = 'nowrap';
-        if (!cell.style.backgroundColor) cell.style.backgroundColor = cell.tagName === 'TH' ? '#e9edff' : '#ffffff';
-    });
+            cloneTable.querySelectorAll('th, td').forEach(cell => {
+            cell.style.border = '1px solid #ddd';
+            cell.style.padding = '2px 4px'; // 紧凑的内边距，只比文字大一点点
+            cell.style.textAlign = 'center';
+            cell.style.whiteSpace = 'nowrap';
+            cell.style.minWidth = 'auto';   // 防止表头被撑开
+            if (!cell.style.backgroundColor) cell.style.backgroundColor = cell.tagName === 'TH' ? '#e9edff' : '#ffffff';
+        });
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
