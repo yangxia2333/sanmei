@@ -241,6 +241,7 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <button id="btnUndoTableDelete" style="background:#17a2b8;">↩ 撤销删除</button>
 <button id="btnHideSelectedCol" style="background:#6c757d;">隐藏选中列</button>
 <button id="btnUnhideCol" style="background:#17a2b8;">取消隐藏列</button>
+<button id="btnFilterNotice" style="display:none;background:#f0ad4e;">剩余库存已进行筛选</button>
 </div>
 <div id="tableWrap" style="overflow-x:auto;"></div>
 <button class="add-row-btn" id="btnManualAddRow">+ 手动新增一行</button>
@@ -371,6 +372,7 @@ const DEVICE_ID = (() => {
 })();
 
 const STORAGE_KEY = "tri_mei_store";
+const HIDDEN_KEY = "tri_mei_hidden_cols";
 const SNAPSHOT_KEY = "tri_mei_snapshots";
 const autoCombineList = [
     { a: "橙粉公主", b: "云南紫", name: "橙粉公主＋云南紫", lock: false },
@@ -2070,6 +2072,14 @@ async function loadStorage() {
             applyLoadedData(d);
         } catch(e) { console.warn('本地数据损坏'); }
     }
+        // 读取本地专属的隐藏列状态（不参与云端同步）
+    const hiddenRaw = localStorage.getItem(HIDDEN_KEY);
+    if (hiddenRaw) {
+        try {
+            const arr = JSON.parse(hiddenRaw);
+            appData.hidden_cols = new Set(arr);
+        } catch(e) { console.warn('隐藏列状态读取失败'); }
+    }
     try {
         const { data, error } = await cloudDB.from('devices').select('data, last_sync').order('last_sync', { ascending: false }).limit(1);
         if (!error && data && data.length > 0) {
@@ -2143,6 +2153,7 @@ function saveStorage(isManualSync = false) {
         diffResultText: appData.diffResultText, deleteHistory: appData.deleteHistory || []
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        localStorage.setItem(HIDDEN_KEY, JSON.stringify(Array.from(appData.hidden_cols)));
     const devName = (navigator.userAgent.includes('Android') ? '安卓手机' : navigator.userAgent.includes('iPhone') ? '苹果手机' : navigator.userAgent.includes('Windows') ? 'Windows电脑' : '未知设备');
     cloudDB.from('devices').upsert({
         id: DEVICE_ID, device_name: devName,
@@ -2680,6 +2691,21 @@ function renderTable() {
         if (searchWord) rows = rows.filter(tr => String(tr.品种).toLowerCase().includes(searchWord) || String(tr.品相).toLowerCase().includes(searchWord));
 
         const stat = document.getElementById("statPanel");
+                // 筛选提示按钮
+        const filterNotice = document.getElementById('btnFilterNotice');
+        if (filterNotice) {
+            if (appData.remainFilterValues && appData.remainFilterValues.length > 0) {
+                filterNotice.style.display = 'inline-block';
+                filterNotice.onclick = () => {
+                    appData.remainFilterValues = [];
+                    saveStorage();
+                    renderTable();
+                    showToast('已取消筛选');
+                };
+            } else {
+                filterNotice.style.display = 'none';
+            }
+        }
         const totalRows = rows.length;
         const tDai = appData.thresholdDai || 30;
         const tShao = appData.thresholdShao || 30;
