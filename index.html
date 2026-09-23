@@ -265,6 +265,7 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <input id="editVarAlias" placeholder="别名逗号分隔">
 <input id="editVarPrice" type="number" step="0.1" placeholder="带花价格（元）">
 <button id="btnSubmitEditVar">保存修改</button>
+<button id="btnAddFinePrice" style="background:#f0ad4e;">增加细杆价格</button>
 <button class="gray" id="btnCloseEditVar">关闭</button>
 </div>
 </div>
@@ -1098,11 +1099,25 @@ function getSalePrice(row) {
     if (!row) return null;
     const varietyName = row.品种;
     const phase = row.品相;
-    if (phase === "组合") {
-        return appData.variety_prices[varietyName] !== undefined ? appData.variety_prices[varietyName] : null;
+    const spec = row.规格 || '';
+    const p = appData.variety_prices[varietyName];
+    if (p === undefined || p === null) return null;
+
+    let basePrice = null;
+    if (typeof p === 'number') {
+        basePrice = p;
+    } else if (typeof p === 'object') {
+        if (spec === '细' && p.细 !== undefined && p.细 !== '') {
+            basePrice = p.细;
+        } else if (p.粗 !== undefined && p.粗 !== '') {
+            basePrice = p.粗;
+        } else if (p.细 !== undefined && p.细 !== '') {
+            basePrice = p.细;
+        }
     }
-    const basePrice = appData.variety_prices[varietyName];
-    if (basePrice === undefined) return null;
+    if (basePrice === null) return null;
+
+    if (phase === "组合") return basePrice;
     if (phase === "带花") return basePrice;
     if (phase === "少量花") {
         if (varietyName.includes("变色龙")) return basePrice;
@@ -2309,10 +2324,18 @@ function renderLibList() {
     wrap.innerHTML = "";
     appData.variety_list.forEach((v, idx) => {
         const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === v);
-        const price = appData.variety_prices[v] !== undefined ? appData.variety_prices[v] : '未设置';
+        const p = appData.variety_prices[v];
+        let priceDisplay = '未设置';
+        if (typeof p === 'number') {
+            priceDisplay = p;
+        } else if (typeof p === 'object' && p !== null) {
+            const c = (p.粗 !== undefined && p.粗 !== '') ? p.粗 : '空';
+            const f = (p.细 !== undefined && p.细 !== '') ? p.细 : '空';
+            priceDisplay = `粗${c}/细${f}`;
+        }
         const div = document.createElement("div");
         div.className = "list-item";
-        div.innerHTML = `<div>${v}${aliases.length?" |别名:"+aliases.join(","):""} |价格:${price}</div>
+        div.innerHTML = `<div>${v}${aliases.length?" |别名:"+aliases.join(","):""} |价格:${priceDisplay}</div>
         <div>
         <button data-edit-idx="${idx}">编辑</button>
         <button data-del-idx="${idx}" style="background:#d9534f;">删除</button>
@@ -2323,16 +2346,6 @@ function renderLibList() {
     wrap.querySelectorAll("button[data-del-idx]").forEach(b => b.onclick = () => deleteVariety(Number(b.dataset.delIdx)));
     const searchVal = document.getElementById("libSearch").value.trim();
     if (searchVal) filterLibList();
-}
-
-function openEditVariety(idx) {
-    appData.editVarietyIndex = idx;
-    const name = appData.variety_list[idx];
-    const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === name);
-    document.getElementById("editVarName").value = name;
-    document.getElementById("editVarAlias").value = aliases.join(",");
-    document.getElementById("editVarPrice").value = appData.variety_prices[name] !== undefined ? appData.variety_prices[name] : '';
-    document.getElementById("editVarPopup").classList.remove("hide");
 }
 
 function closeEditVarPopup() {
@@ -2349,11 +2362,25 @@ function submitEditVariety() {
     const aliasStr = document.getElementById("editVarAlias").value.trim();
     const priceVal = document.getElementById("editVarPrice").value.trim();
     if (!newName) { alert("品种名不能为空"); return; }
-    let price = undefined;
+    
+    const oldPrice = appData.variety_prices[oldName];
+    let newPrice = undefined;
     if (priceVal !== '') {
-        price = Number(priceVal);
-        if (isNaN(price) || price < 0) { alert("请输入有效的非负价格"); return; }
+        const cv = Number(priceVal);
+        if (isNaN(cv) || cv < 0) { alert("请输入有效价格"); return; }
+        if (typeof oldPrice === 'object' && oldPrice !== null && oldPrice.细 !== undefined) {
+            newPrice = { 粗: cv, 细: oldPrice.细 };
+        } else {
+            newPrice = cv;
+        }
+    } else {
+        if (typeof oldPrice === 'object' && oldPrice !== null) {
+            newPrice = { 细: oldPrice.细 };
+        } else {
+            newPrice = undefined;
+        }
     }
+    
     Object.keys(appData.alias_map).forEach(k => {
         if (appData.alias_map[k] === oldName) delete appData.alias_map[k];
     });
@@ -2362,8 +2389,9 @@ function submitEditVariety() {
         const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
         aliases.forEach(a => { appData.alias_map[a] = newName; });
     }
-    if (price !== undefined) appData.variety_prices[newName] = price;
+    if (newPrice !== undefined) appData.variety_prices[newName] = newPrice;
     else delete appData.variety_prices[newName];
+    
     appData.pure_rows.forEach(r => { if (r.品种 === oldName) r.品种 = newName; });
     appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
     appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
@@ -3133,6 +3161,28 @@ function bindGlobalButtons() {
     document.getElementById("btnPopJumpLib").addEventListener('click', jumpToLibFromPop);
     document.getElementById("btnPopCloseUnknown").addEventListener('click', closeUnknownVarPop);
     document.getElementById("btnSubmitEditVar").addEventListener('click', submitEditVariety);
+        document.getElementById("btnAddFinePrice").addEventListener('click', function() {
+        const idx = appData.editVarietyIndex;
+        if (idx === null) return;
+        const name = appData.variety_list[idx];
+        const p = appData.variety_prices[name];
+        let coarsePrice = 0;
+        if (typeof p === 'number') coarsePrice = p;
+        else if (typeof p === 'object' && p !== null && p.粗 !== undefined) coarsePrice = p.粗;
+        const fineVal = prompt(`请输入「${name}」的细杆带花价格：`, '');
+        if (fineVal === null) return;
+        const fv = Number(fineVal);
+        if (isNaN(fv) || fv < 0) { alert("价格无效"); return; }
+        if (typeof p === 'object' && p !== null) {
+            p.细 = fv;
+            appData.variety_prices[name] = p;
+        } else {
+            appData.variety_prices[name] = { 粗: coarsePrice, 细: fv };
+        }
+        saveStorage();
+        renderLibList();
+        alert("细杆价格已保存！");
+    });
     document.getElementById("btnCloseEditVar").addEventListener('click', closeEditVarPopup);
 
     document.getElementById("btnFillExport").addEventListener('click', fillExportText);
