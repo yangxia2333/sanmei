@@ -29,11 +29,12 @@ td .row-resize-handle:active{background:rgba(43,101,236,0.3);}
 .pop-mask{position:fixed;inset:0;background:#00000060;display:flex;align-items:center;justify-content:center;padding:12px;z-index:99;}
 tr td.cell-yellow { background-color: #ffff00 !important; color: #000000 !important; }
 tr.updated-row td.cell-yellow { background-color: #ffff00 !important; color: #000000 !important; }
-td.cell-var-click {
+tr.row-var-click td {
     background-color: #ff0000 !important;
+    color: #ffffff !important;
     border-radius: 0 !important;
 }
-td.cell-var-click input {
+tr.row-var-click td input {
     color: #ffffff !important;
     background-color: transparent !important;
     border: none !important;
@@ -41,7 +42,6 @@ td.cell-var-click input {
     box-shadow: none !important;
     -webkit-appearance: none !important;
     appearance: none !important;
-    border-radius: 0 !important;
 }
 td.cell-red {background-color: #ff0000 !important;color: #ffffff !important;}
 .pop-win{background:#fff;padding:14px;border-radius:10px;width:100%;max-width:380px;max-height:85vh;overflow:auto;}
@@ -478,28 +478,70 @@ function sortPureRowsByCustomRule(list) {
             otherSingle.push(item);
         }
     });
-    otherDouble.sort((a, b) => b._sortValue - a._sortValue);
-    let maBlockValue = 0;
-    maItems.forEach(item => { if (item._sortValue > maBlockValue) maBlockValue = item._sortValue; });
+
+    // 今日更新的排序规则：大户保护 + 高带花通道 + 中户保护 + 散户降序
+    otherDouble.sort((a, b) => {
+        let aShao = a.data.少量花.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+        let aDai = a.data.带花.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+        let bShao = b.data.少量花.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+        let bDai = b.data.带花.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+
+        const BIG_SHAO = 1000;
+        const HIGH_DAI = 100;
+        const MID_SHAO = 500;
+
+        const aBig = aShao >= BIG_SHAO, bBig = bShao >= BIG_SHAO;
+        const aHighDai = aDai >= HIGH_DAI, bHighDai = bDai >= HIGH_DAI;
+        const aMid = aShao >= MID_SHAO, bMid = bShao >= MID_SHAO;
+
+        if (aBig && !bBig) return -1;
+        if (!aBig && bBig) return 1;
+        if (aBig && bBig) {
+            if (aShao > bShao && aDai < bDai) return 1;
+            if (aShao < bShao && aDai > bDai) return -1;
+            if (bShao !== aShao) return bShao - aShao;
+            return bDai - aDai;
+        }
+        if (aHighDai && !bHighDai) return -1;
+        if (!aHighDai && bHighDai) return 1;
+        if (aHighDai && bHighDai) {
+            if (bDai !== aDai) return bDai - aDai;
+            return bShao - aShao;
+        }
+        if (aMid && !bMid) return -1;
+        if (!aMid && bMid) return 1;
+        if (bShao !== aShao) return bShao - aShao;
+        return bDai - aDai;
+    });
+
     maItems.sort((a, b) => b._sortValue - a._sortValue);
     otherSingle.sort((a, b) => b._sortValue - a._sortValue);
     let chongbanBlockValue = 0;
     chongbanItems.forEach(item => { if (item._sortValue > chongbanBlockValue) chongbanBlockValue = item._sortValue; });
     chongbanItems.sort((a, b) => b._sortValue - a._sortValue);
-    const doubleItems = [];
-    otherDouble.forEach(item => {
-        const daiSorted = item.data.带花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
-        const shaoSorted = item.data.少量花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
-        doubleItems.push({ type: 'other', sortValue: item._sortValue, rows: [...daiSorted, ...shaoSorted] });
-    });
+
+    let maBlockValue = 0;
+    maItems.forEach(item => { if (item._sortValue > maBlockValue) maBlockValue = item._sortValue; });
     const maRows = [];
     maItems.forEach(item => {
         const daiSorted = item.data.带花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
         const shaoSorted = item.data.少量花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
         maRows.push(...daiSorted); maRows.push(...shaoSorted);
     });
-    doubleItems.push({ type: 'ma', sortValue: maBlockValue, rows: maRows });
-    doubleItems.sort((a, b) => b.sortValue - a.sortValue);
+
+    const doubleItems = [];
+    let maInserted = false;
+    otherDouble.forEach(item => {
+        if (!maInserted && maBlockValue >= item._sortValue) {
+            doubleItems.push({ type: 'ma', sortValue: maBlockValue, rows: maRows });
+            maInserted = true;
+        }
+        const daiSorted = item.data.带花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
+        const shaoSorted = item.data.少量花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
+        doubleItems.push({ type: 'other', sortValue: item._sortValue, rows: [...daiSorted, ...shaoSorted] });
+    });
+    if (!maInserted) doubleItems.push({ type: 'ma', sortValue: maBlockValue, rows: maRows });
+
     const singleItems = [];
     otherSingle.forEach(item => {
         const rows = item.data.带花.length ? item.data.带花 : item.data.少量花;
@@ -514,6 +556,7 @@ function sortPureRowsByCustomRule(list) {
     });
     singleItems.push({ type: 'chongban', sortValue: chongbanBlockValue, rows: chongbanRows });
     singleItems.sort((a, b) => b.sortValue - a.sortValue);
+
     const result = [];
     doubleItems.forEach(item => result.push(...item.rows));
     singleItems.forEach(item => result.push(...item.rows));
@@ -2801,8 +2844,11 @@ function bindTableEvents() {
         if (!inp) return;
         td.addEventListener('click', (e) => {
             if (inp.hasAttribute('readonly')) {
-                document.querySelectorAll('.cell-var-click').forEach(el => el.classList.remove('cell-var-click'));
-                td.classList.add('cell-var-click');
+                // 清除原来整行的红标
+                document.querySelectorAll('tr.row-var-click').forEach(el => el.classList.remove('row-var-click'));
+                // 给当前行加上红标
+                const tr = td.closest('tr');
+                if (tr) tr.classList.add('row-var-click');
             }
         });
         td.addEventListener('dblclick', (e) => {
