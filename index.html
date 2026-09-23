@@ -3080,6 +3080,73 @@ function unhideLastCol() {
     showToast('✅ 已显示所有列');
 }
 
+function openEditVariety(idx) {
+    appData.editVarietyIndex = idx;
+    const name = appData.variety_list[idx];
+    const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === name);
+    document.getElementById("editVarName").value = name;
+    document.getElementById("editVarAlias").value = aliases.join(",");
+    const p = appData.variety_prices[name];
+    let coarsePrice = '';
+    if (typeof p === 'number') coarsePrice = p;
+    else if (typeof p === 'object' && p !== null && p.粗 !== undefined) coarsePrice = p.粗;
+    document.getElementById("editVarPrice").value = coarsePrice;
+    document.getElementById("editVarPopup").classList.remove("hide");
+}
+
+function closeEditVarPopup() {
+    document.getElementById("editVarPopup").classList.add("hide");
+    appData.editVarietyIndex = null;
+}
+
+function submitEditVariety() {
+    const idx = appData.editVarietyIndex;
+    if (idx === null) return;
+    const oldName = appData.variety_list[idx];
+    let newName = document.getElementById("editVarName").value.trim();
+    newName = normalizeVariety(newName);
+    const aliasStr = document.getElementById("editVarAlias").value.trim();
+    const priceVal = document.getElementById("editVarPrice").value.trim();
+    if (!newName) { alert("品种名不能为空"); return; }
+    
+    const oldPrice = appData.variety_prices[oldName];
+    let newPrice = undefined;
+    if (priceVal !== '') {
+        const cv = Number(priceVal);
+        if (isNaN(cv) || cv < 0) { alert("请输入有效价格"); return; }
+        if (typeof oldPrice === 'object' && oldPrice !== null && oldPrice.细 !== undefined) {
+            newPrice = { 粗: cv, 细: oldPrice.细 };
+        } else {
+            newPrice = cv;
+        }
+    } else {
+        if (typeof oldPrice === 'object' && oldPrice !== null) {
+            newPrice = { 细: oldPrice.细 };
+        } else {
+            newPrice = undefined;
+        }
+    }
+    
+    Object.keys(appData.alias_map).forEach(k => {
+        if (appData.alias_map[k] === oldName) delete appData.alias_map[k];
+    });
+    appData.variety_list[idx] = newName;
+    if (aliasStr) {
+        const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
+        aliases.forEach(a => { appData.alias_map[a] = newName; });
+    }
+    if (newPrice !== undefined) appData.variety_prices[newName] = newPrice;
+    else delete appData.variety_prices[newName];
+    
+    appData.pure_rows.forEach(r => { if (r.品种 === oldName) r.品种 = newName; });
+    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    saveStorage();
+    closeEditVarPopup();
+    renderLibList();
+    renderTable();
+    alert("保存成功！");
+}
 function bindGlobalButtons() {
     // 问题1：点击"带花品"或"少量花品"分别修改各自的阈值
     const statPanelEl = document.getElementById("statPanel");
