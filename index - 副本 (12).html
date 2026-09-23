@@ -1,0 +1,3234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>三角梅库存管理</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;}
+body{background:#f4f6f8;color:#222;padding:8px;padding-bottom:120px;}
+button{padding:6px 8px;border:none;border-radius:8px;background:#2b65ec;color:#fff;font-size:13px;margin:2px;touch-action:manipulation;cursor:pointer;}
+button.gray{background:#71717a;}
+button.del-row{background:#ed333b;}
+button.move-btn{background:#27ae60;padding:4px 5px;font-size:11px;}
+button.add-row-btn{width:100%;background:#009944;margin-top:6px;}
+.col-op-bar{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;}
+textarea,input{width:100%;padding:9px;border:1px solid #ccc;border-radius:8px;font-size:14px;margin:3px 0;background:#fff;}
+textarea{min-height:130px;}
+.box{background:#fff;padding:12px;border-radius:10px;margin-bottom:10px;box-shadow:0 1px 4px #00000018;}
+h3{margin-bottom:8px;font-size:17px;}
+.home-btn{width:100%;margin:5px 0;padding:13px;font-size:16px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+.back-bar{margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+th,td{border:1px solid #ddd;padding:0px 2px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;line-height:1.2;}
+th{background:#e9edff;user-select:none;position:relative;}
+th .resize-handle{position:absolute;right:0;top:0;width:20px;height:100%;cursor:col-resize;background:transparent;z-index:10;touch-action:none;}
+th .resize-handle:active{background:rgba(43,101,236,0.3);}
+td .row-resize-handle{position:absolute;bottom:-2px;left:0;width:100%;height:10px;cursor:row-resize;background:transparent;z-index:10;touch-action:none;}
+td .row-resize-handle:active{background:rgba(43,101,236,0.3);}
+.pop-mask{position:fixed;inset:0;background:#00000060;display:flex;align-items:center;justify-content:center;padding:12px;z-index:99;}
+tr td.cell-yellow { background-color: #ffff00 !important; color: #000000 !important; }
+tr.updated-row td.cell-yellow { background-color: #ffff00 !important; color: #000000 !important; }
+tr.row-var-click td {
+    background-color: #ff0000 !important;
+    color: #ffffff !important;
+    border-radius: 0 !important;
+}
+tr.row-var-click td input {
+    color: #ffffff !important;
+    background-color: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+td.cell-red {background-color: #ff0000 !important;color: #ffffff !important;}
+.pop-win{background:#fff;padding:14px;border-radius:10px;width:100%;max-width:380px;max-height:85vh;overflow:auto;}
+.hide{display:none !important;}
+.list-item{padding:7px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+td input{width:100%;border:none;background:transparent;text-align:center;margin:0;padding:0;font-size:12px;outline:none;line-height:1.2;}
+td input:focus{background:#f0f7ff;}
+#tableWrap{overflow-x:auto;}
+
+/* 斑马纹 + 各类行底色 */
+tr.zebra-even td{background:#ffffff;}
+tr.zebra-odd td{background:#f0f2f5;}
+tr.system-combine td{background:#fff2cc;}
+tr.warn-row td{background:#ffe9e9;}
+tr.off-shelf{opacity:0.55;}
+tr.selected-row td{background:#d4e6ff !important;}
+tr.updated-row td{background:#ffc0cb !important;}
+tr.removed-row td{background:#ff0000 !important;}
+tr.removed-row{text-decoration:line-through;color:#ffffff;}
+tr.removed-row td input{color:#ffffff;}
+td.col-selected{background:#d4e6ff !important;}
+
+.export-textarea{width:100%;min-height:200px;border:1px solid #ccc;padding:8px;border-radius:6px;font-size:12px;white-space:pre;}
+.stat-panel{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;}
+.stat-item{background:#edf2ff;padding:4px 8px;border-radius:6px;}
+.search-bar{margin:6px 0;}
+.snapshot-item{padding:8px;border-bottom:#eee 1px solid;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
+th .select-all-check{width:18px;height:18px;cursor:pointer;}
+td input[type="checkbox"]{width:18px;height:18px;cursor:pointer;}
+th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
+#remainMenu, #salesSortMenu{position:fixed;background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.3);padding:6px 0;z-index:100;min-width:130px;display:none;}
+#remainMenu button, #salesSortMenu button{display:block;width:100%;background:none;border:none;padding:10px 16px;text-align:left;font-size:14px;color:#222;cursor:pointer;border-radius:0;}
+#remainMenu button:hover, #salesSortMenu button:hover{background:#f0f0f0;}
+#remainMenu .sep, #salesSortMenu .sep{border-top:1px solid #eee;margin:4px 0;}
+.diff-summary{background:#f8f9fa;padding:10px;border-radius:6px;margin-bottom:10px;font-size:13px;border-left:4px solid #2b65ec;}
+.diff-summary strong{color:#2b65ec;}
+.save-hint{font-size:11px;color:#888;margin-top:6px;line-height:1.5;}
+.save-toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#000000cc;color:#fff;padding:12px 24px;border-radius:8px;font-size:15px;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;}
+.save-toast.show{opacity:1;}
+
+/* 快照详情专用样式 */
+#snapDetailContent table{font-size:12px;}
+#snapDetailContent th{padding:4px 2px;background:#e9edff;}
+#snapDetailContent td{padding:2px;text-align:center;}
+#snapDetailContent tr.snap-zebra-even td{background:#ffffff;}
+#snapDetailContent tr.snap-zebra-odd td{background:#f0f2f5;}
+#snapDetailContent tr.snap-updated td{background:#ffc0cb !important;}
+#snapDetailContent td.snap-diff-yellow{background:#ffff00 !important;color:#000 !important;}
+#snapDetailContent td.snap-cell-red{background:#ff0000 !important;color:#fff !important;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div id="saveToast" class="save-toast"></div>
+
+<div id="pageHome">
+<div class="box">
+<h3>三角梅库存管理‑首页</h3>
+<button class="home-btn" id="btnSaveAll" style="background:#009944;">💾 保存所有数据</button>
+<button class="home-btn" id="btnCloudSync" style="background:#17a2b8;">☁️ 立即同步云端</button>
+<button class="home-btn" id="btnPullData" style="background:#17a2b8;">⬇️ 从云端拉取最新数据</button>
+<button class="home-btn" id="btnLoadHistory" style="background:#e67e22;">🕐 读取云端历史记录</button>
+<button class="home-btn" id="btnLib">品种库</button>
+<button class="home-btn" id="btnInputData">输入/解析原始文本</button>
+<button class="home-btn" id="btnSalesPage">销量设置</button>
+<button class="home-btn" id="btnDivPage">除数设置</button>
+<button class="home-btn" id="btnSnapshotPage">快照备份管理</button>
+<button class="home-btn" id="btnDiffPage">两组库存差异对比</button>
+<button class="home-btn" id="btnExportAll">导出全部数据</button>
+</div>
+</div>
+
+<div id="pageLib" class="hide">
+<div class="back-bar">
+<button class="gray" id="libBackHome">返回首页</button>
+<button class="gray" id="libBackInput">返回输入数据</button>
+<button class="gray" id="libBackTable">返回表格</button>
+<button class="gray" id="libBackSales" style="display:none;">返回销量继续</button>
+<button id="btnBatchImportLib" style="background:#f0ad4e;">批量导入</button>
+<button id="btnUndoDelete" style="background:#17a2b8;">撤回删除</button>
+</div>
+<div class="box">
+<h3>品种库</h3>
+<div class="search-bar"><input id="libSearch" placeholder="搜索品种或别名..."></div>
+<div id="libList"></div>
+<br>
+<label>正式品种名:</label>
+<input id="newVarName" placeholder="例如：玫瑰红">
+<label>别名，逗号分隔（玫红,玫）:</label>
+<input id="newVarAlias" placeholder="缩写别名">
+<label>带花价格（元）:</label>
+<input id="newVarPrice" type="number" step="0.1" placeholder="例如 25">
+<button id="btnSaveNewVar">保存新建</button>
+</div>
+</div>
+
+<div id="pageInputData" class="hide">
+<div class="back-bar">
+<button class="gray" id="inputBackHome">返回首页</button>
+<button id="btnClearInput" style="background:#d9534f;">清除输入</button>
+<button id="btnGoToTable" style="background:#28a745;">进入表格</button>
+</div>
+<div class="box">
+<h3>粘贴原始库存文本（支持多种格式自动解析）</h3>
+<div style="font-size:12px;color:#666;margin:4px 0;">
+示例：<br>
+少量花<br>
+【橙粉公主】500<br>
+【橙粉细】1400<br>
+带花<br>
+橙粉粗30
+</div>
+<textarea id="rawTextArea" placeholder="少量花&#10;【橙粉公主】400&#10;【云南紫】400&#10;喜悦：少花520多花：240&#10;重瓣橙200"></textarea>
+<button id="btnDoParse">确定解析跳转表格</button>
+<br><br>
+<h4>导入导出备份文本回填表格</h4>
+<textarea id="importTextArea" placeholder="粘贴导出备份文本进行导入"></textarea>
+<button id="btnDoImport">导入备份覆盖表格</button>
+</div>
+</div>
+
+<div id="pageSalesPage" class="hide">
+<div class="back-bar">
+<button class="gray" id="salesBackHome">返回首页</button>
+<button id="btnClearSales" style="background:#d9534f;">消除销量</button>
+</div>
+<div class="box">
+<h3>销量设置（默认匹配粗规格）</h3>
+<div style="font-size:12px;color:#555;margin-bottom:6px;">
+支持格式示例：<br>
+【漳红樱】粗杆带花小苗 40  → 匹配“漳红樱粗”<br>
+少量花【卡亚塔】粗杆小苗 23 → 匹配“卡亚塔粗”<br>
+橙粉公主 200 → 匹配“橙粉公主”（无规格）<br>
+橙粉公主||少量花||200 → 匹配“橙粉公主”（无规格）<br>
+广红樱粗 1500 → 匹配“广红樱粗”<br>
+广红樱 800 → 默认匹配“广红樱粗”，若没有则匹配“广红樱细”
+</div>
+<textarea id="salesText" style="min-height:200px;"></textarea>
+<button id="btnSaveSales">开始导入销量</button>
+</div>
+</div>
+
+<div id="pageDivPage" class="hide">
+<div class="back-bar"><button class="gray" id="divBackHome">返回首页</button></div>
+<div class="box">
+<h3>设置除数（抖音=剩余÷除数向上进整十）</h3>
+<input id="divInput" type="number" step="0.1">
+<button id="btnSaveDiv">确定</button>
+<div style="margin-top:8px;font-size:12px;color:#666;">定期导出txt外部备份，防止浏览器清理丢失数据</div>
+</div>
+</div>
+
+<div id="pageSnapshotPage" class="hide">
+<div class="back-bar"><button class="gray" id="snapBackHome">返回首页</button></div>
+<div class="box">
+<h3>快照备份</h3>
+<button id="btnCreateSnap">新建快照（保存当前表格状态）</button>
+<div id="snapshotList"></div>
+</div>
+</div>
+
+<div id="pageDiffPage" class="hide">
+<div class="back-bar">
+<button class="gray" id="diffBackHome">返回首页</button>
+<button class="gray" id="btnDiffDeleteData" style="background:#d9534f;">删除数据</button>
+<button id="btnDiffModifyResult" style="background:#ffc107;">修改结果</button>
+<button id="btnDiffUpdateTable" style="background:#28a745;">更新表格</button>
+</div>
+<div class="box">
+<h3>两组库存差异对比</h3>
+<label>旧库存文本</label>
+<textarea id="diffOld" placeholder="粘贴旧库存文本..."></textarea>
+<label>新库存文本</label>
+<textarea id="diffNew" placeholder="粘贴新库存文本..."></textarea>
+<button id="btnRunDiff">执行对比</button>
+<div id="diffResult" style="white-space:pre-wrap;margin-top:10px;border:1px solid #ccc;padding:8px;border-radius:6px;min-height:80px;"></div>
+</div>
+</div>
+
+<div id="pageTable" class="hide">
+<div class="back-bar">
+<button class="gray" id="tableBackHome">返回首页</button>
+<button id="btnClearHighlight" style="background:#6c757d;">清除高亮</button>
+<button id="btnClearRemoved" style="background:#c0392b;">清除红色标记</button>
+<button id="btnExportSelectedColsImg" style="background:#e67e22;">导出选中列为图片</button>
+</div>
+<div class="box">
+<div class="search-bar"><input id="searchInput" placeholder="搜索品种过滤表格"></div>
+<div id="dataSourceInfo" style="font-size:13px; color:#2b65ec; margin-bottom:8px; font-weight:bold;"></div>
+<div id="lastUpdateInfo" style="font-size:13px; color:#e67e22; margin-bottom:8px; font-weight:bold;"></div>
+<div class="stat-panel" id="statPanel"></div>
+<h3>结果表格（黄色行=组合行，可编辑且联动）</h3>
+<div class="col-op-bar">
+<button id="btnAddCol">+增加列</button>
+<button id="btnDelSelectedRows" style="background:#d9534f;">删除选中行</button>
+<button id="btnUndoTableDelete" style="background:#17a2b8;">↩ 撤销删除</button>
+<button id="btnHideSelectedCol" style="background:#6c757d;">隐藏选中列</button>
+<button id="btnUnhideCol" style="background:#17a2b8;">取消隐藏列</button>
+<button id="btnFilterNotice" style="display:none;background:#f0ad4e;">剩余库存已进行筛选</button>
+</div>
+<div id="tableWrap" style="overflow-x:auto;"></div>
+<button class="add-row-btn" id="btnManualAddRow">+ 手动新增一行</button>
+</div>
+</div>
+
+<div id="popUnknownVar" class="pop-mask hide">
+<div class="pop-win">
+<h4>检测到新品种</h4>
+<div>品种名称：<span id="popNewVarName"></span></div>
+<div style="margin:8px 0">该品种不在品种库，是否跳转品种库新增？</div>
+<button id="btnPopJumpLib">确认跳转</button>
+<button class="gray" id="btnPopCloseUnknown">暂不处理</button>
+</div>
+</div>
+
+<div id="editVarPopup" class="pop-mask hide">
+<div class="pop-win">
+<h4>编辑品种</h4>
+<input id="editVarName" placeholder="正式品种名">
+<input id="editVarAlias" placeholder="别名逗号分隔">
+<input id="editVarPrice" type="number" step="0.1" placeholder="带花价格（元）">
+<button id="btnSubmitEditVar">保存修改</button>
+<button class="gray" id="btnCloseEditVar">关闭</button>
+</div>
+</div>
+
+<div id="exportPopup" class="pop-mask hide">
+<div class="pop-win">
+<h4>导出全部数据</h4>
+<div>
+<label><input type="radio" name="exportMode" value="backup" checked>完整数据（含销量、剩余库存等，可直接粘贴到Excel）</label>
+<label><input type="radio" name="exportMode" value="origin">原始录入文本格式（复制发给别人）</label>
+</div>
+<div style="font-size:12px;margin:4px 0;">复制下面全部内容</div>
+<textarea id="exportTextarea" class="export-textarea"></textarea>
+<div style="margin-top:8px;">
+<button id="btnFillExport">刷新导出内容</button>
+<button id="btnCopyExport">一键复制</button>
+<button id="btnSaveToFile" style="background:#009944;">保存到手机文件</button>
+<button class="gray" id="btnCloseExport">关闭</button>
+</div>
+<div class="save-hint">💡 "保存到手机文件"会打开手机的系统分享面板，你可以保存到文件管理器、发送到微信/QQ、上传到网盘等。建议定期备份到微信收藏或云盘，防止数据丢失。</div>
+</div>
+</div>
+
+<div id="popBatchImportLib" class="pop-mask hide">
+<div class="pop-win">
+<h4>批量导入品种</h4>
+<div>每行输入一个品种名（正式名），可加别名用逗号分隔：<br>示例：广红樱<br>橙粉公主,橙粉</div>
+<textarea id="batchImportLibText" style="min-height:150px;"></textarea>
+<button id="btnBatchImportLibConfirm">确认导入</button>
+<button class="gray" id="btnBatchImportLibCancel">取消</button>
+</div>
+</div>
+
+<div id="popDiffEdit" class="pop-mask hide">
+<div class="pop-win">
+<h4>修改差异结果</h4>
+<textarea id="diffEditText" style="min-height:200px;"></textarea>
+<button id="btnDiffSaveEdit">保存修改</button>
+<button class="gray" id="btnDiffCancelEdit">取消</button>
+</div>
+</div>
+
+<div id="popSnapDetail" class="pop-mask hide">
+<div class="pop-win" style="max-width:95vw;">
+<h4>快照详情 - <span id="snapDetailTime"></span></h4>
+<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+<button id="btnSnapDownload" style="background:#e67e22;">📥 下载为图片</button>
+<button id="btnSnapSortMenu" style="background:#27ae60;">按销量排序</button>
+<button id="btnSnapFilterMenu" style="background:#6c757d;">筛选剩余库存</button>
+<button class="gray" id="btnSnapReset">重置</button>
+</div>
+<div id="snapDetailContent"></div>
+<div style="margin-top:10px;text-align:right;">
+<button class="gray" id="btnCloseSnapDetail">关闭</button>
+</div>
+</div>
+</div>
+
+<div id="remainMenu">
+<button id="remainMenuFilter">进行筛选</button>
+<div class="sep"></div>
+<button id="remainMenuClear">取消筛选</button>
+</div>
+
+<div id="salesSortMenu">
+<button id="salesSortDesc">降序排列</button>
+<div class="sep"></div>
+<button id="salesSortClear">取消排序</button>
+</div>
+
+<div id="popSnapFilter" class="pop-mask hide">
+<div class="pop-win">
+<h4>选择要隐藏的剩余库存数量</h4>
+<div id="snapFilterList" style="max-height:200px;overflow-y:auto;"></div>
+<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+<button id="btnSnapFilterOk">确定</button>
+<button class="gray" id="btnSnapFilterCancel">取消</button>
+</div>
+</div>
+</div>
+
+<div id="popRemainFilter" class="pop-mask hide">
+<div class="pop-win">
+<h4>选择要隐藏的剩余库存数量</h4>
+<div id="remainFilterList" style="max-height:200px;overflow-y:auto;"></div>
+<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+<button id="btnRemainFilterOk">确定</button>
+<button class="gray" id="btnRemainFilterCancel">取消</button>
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+// ===== 云端同步配置 =====
+const SUPABASE_URL = 'https://lxffmhnpmkqhxedysixq.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4ZmZtaG5wbWtxaHhlZHlzaXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNDEyODYsImV4cCI6MjEwNDYxNzI4Nn0.2aZQ3XncPj6x6XajNemUK0L37V1_kPVlEHy7pX6GnAw'; 
+const { createClient } = supabase;
+const cloudDB = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DEVICE_ID = (() => {
+  let id = localStorage.getItem('_device_id');
+  if (!id) { id = 'device_' + Math.random().toString(36).slice(2, 10); localStorage.setItem('_device_id', id); }
+  return id;
+})();
+
+const STORAGE_KEY = "tri_mei_store";
+const HIDDEN_KEY = "tri_mei_hidden_cols";
+const SNAPSHOT_KEY = "tri_mei_snapshots";
+const autoCombineList = [
+    { a: "橙粉公主", b: "云南紫", name: "橙粉公主＋云南紫", lock: false },
+    { a: "金心橙白", b: "云南紫", name: "金心橙白＋云南紫", lock: false },
+    { a: "娆", b: "广红樱", name: "娆＋广红樱", lock: false }
+];
+
+let appData = {
+    thresholdDai: 30,       // 问题1：带花品独立阈值
+    thresholdShao: 30,      // 问题1：少量花品独立阈值
+    _dataSourceDate: "",
+    _lastTableUpdateTime: "",
+    variety_prices: {},
+    _manualCombineValues: {}, // 问题3/5：记住用户手动修改过的组合值
+    _snapDetailState: {       // 问题2：快照详情页的状态（关闭后保留）
+        sortMode: 'none',     // 'none' | 'salesDesc'
+        filterValues: [],
+        selectedCols: []
+    },
+    variety_list: [], alias_map: {}, sales_dict: {}, divisor: 1.8,
+    button_names: {},
+    pure_rows: [], original_pure_rows: [],
+    hidden_cols: new Set(), customCols: [],
+    pendingNewVar: "", editVarietyIndex: null,
+    autoCombineCfg: JSON.parse(JSON.stringify(autoCombineList)),
+    salesPendingLines: [], salesAllLines: [],
+    _unsortedBackup: null, deletedStack: [], hasValidData: false, highlightedRows: new Set(),
+    _showZeroStockAlertOnTable: false,
+    remainFilterValues: [], selectedColsForExport: new Set(),
+    diffOldText: "", diffNewText: "", diffResultText: "",
+    _salesSortBackup: null,
+    deleteHistory: []
+};
+
+let selectedRows = new Set();
+let selectedCol = null;
+let lastHiddenCols = [];
+let dragState = { isDrag: false, thEl: null, startX: 0, startW: 0, pointerId: null };
+let rowDragState = { isDrag: false, trEl: null, startY: 0, startH: 0, pureIdx: -1, pointerId: null };
+
+function normalizeVariety(name) {
+    if (!name) return "";
+    return name.replace(/[【】（）\(\)]/g, '').trim();
+}
+
+function mergePureRows(rows) {
+    const map = {};
+    rows.forEach(r => {
+        const key = `${r.品种}||${r.品相}||${r.规格||''}`;
+        if (!map[key]) {
+            map[key] = { ...r, 原始数量: Number(r.原始数量) || 0, 备注: r.备注 || "" };
+        } else {
+            map[key].原始数量 += Number(r.原始数量) || 0;
+            if (r.备注 && !map[key].备注.includes(r.备注)) {
+                map[key].备注 = map[key].备注 ? map[key].备注 + ',' + r.备注 : r.备注;
+            }
+        }
+    });
+    return Object.values(map);
+}
+
+function sortPureRowsByCustomRule(list) {
+    const normal = list.filter(r => r.品相 !== "组合");
+    const combines = list.filter(r => r.品相 === "组合");
+    const varietyMap = {};
+    normal.forEach(r => {
+        const name = r.品种;
+        if (!varietyMap[name]) varietyMap[name] = { 带花: [], 少量花: [] };
+        if (r.品相 === "带花") varietyMap[name].带花.push(r);
+        else if (r.品相 === "少量花") varietyMap[name].少量花.push(r);
+    });
+    const maItems = [], chongbanItems = [], otherItems = [];
+    Object.keys(varietyMap).forEach(name => {
+        const data = varietyMap[name];
+        if (name.includes("马")) maItems.push({ name, data });
+        else if (name.includes("重瓣")) chongbanItems.push({ name, data });
+        else otherItems.push({ name, data });
+    });
+    maItems.forEach(item => {
+        let max = 0;
+        if (item.data.少量花.length > 0) max = Math.max(...item.data.少量花.map(r => Number(r.原始数量) || 0));
+        else if (item.data.带花.length > 0) max = Math.max(...item.data.带花.map(r => Number(r.原始数量) || 0));
+        item._sortValue = max;
+    });
+    chongbanItems.forEach(item => {
+        let max = 0;
+        if (item.data.带花.length > 0) max = Math.max(...item.data.带花.map(r => Number(r.原始数量) || 0));
+        else if (item.data.少量花.length > 0) max = Math.max(...item.data.少量花.map(r => Number(r.原始数量) || 0));
+        item._sortValue = max;
+    });
+    const otherDouble = [], otherSingle = [];
+    otherItems.forEach(item => {
+        const hasDai = item.data.带花.length > 0;
+        const hasShao = item.data.少量花.length > 0;
+        if (hasDai && hasShao) {
+            const sum = item.data.少量花.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+            item._sortValue = sum;
+            otherDouble.push(item);
+        } else {
+            const rows = item.data.带花.length ? item.data.带花 : item.data.少量花;
+            const sum = rows.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+            item._sortValue = sum;
+            otherSingle.push(item);
+        }
+    });
+
+    // 今日更新的排序规则：大户保护 + 高带花通道 + 中户保护 + 散户降序
+    otherDouble.sort((a, b) => {
+        let aShao = a.data.少量花.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+        let aDai = a.data.带花.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+        let bShao = b.data.少量花.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+        let bDai = b.data.带花.reduce((s, r) => s + (Number(r.原始数量)||0), 0);
+
+        const BIG_SHAO = 1000;
+        const HIGH_DAI = 100;
+        const MID_SHAO = 500;
+
+        const aBig = aShao >= BIG_SHAO, bBig = bShao >= BIG_SHAO;
+        const aHighDai = aDai >= HIGH_DAI, bHighDai = bDai >= HIGH_DAI;
+        const aMid = aShao >= MID_SHAO, bMid = bShao >= MID_SHAO;
+
+        if (aBig && !bBig) return -1;
+        if (!aBig && bBig) return 1;
+        if (aBig && bBig) {
+            if (aShao > bShao && aDai < bDai) return 1;
+            if (aShao < bShao && aDai > bDai) return -1;
+            if (bShao !== aShao) return bShao - aShao;
+            return bDai - aDai;
+        }
+        if (aHighDai && !bHighDai) return -1;
+        if (!aHighDai && bHighDai) return 1;
+        if (aHighDai && bHighDai) {
+            if (bDai !== aDai) return bDai - aDai;
+            return bShao - aShao;
+        }
+        if (aMid && !bMid) return -1;
+        if (!aMid && bMid) return 1;
+        if (bShao !== aShao) return bShao - aShao;
+        return bDai - aDai;
+    });
+
+    maItems.sort((a, b) => b._sortValue - a._sortValue);
+    otherSingle.sort((a, b) => b._sortValue - a._sortValue);
+    let chongbanBlockValue = 0;
+    chongbanItems.forEach(item => { if (item._sortValue > chongbanBlockValue) chongbanBlockValue = item._sortValue; });
+    chongbanItems.sort((a, b) => b._sortValue - a._sortValue);
+
+    let maBlockValue = 0;
+    maItems.forEach(item => { if (item._sortValue > maBlockValue) maBlockValue = item._sortValue; });
+    const maRows = [];
+    maItems.forEach(item => {
+        const daiSorted = item.data.带花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
+        const shaoSorted = item.data.少量花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
+        maRows.push(...daiSorted); maRows.push(...shaoSorted);
+    });
+
+    const doubleItems = [];
+    let maInserted = false;
+    otherDouble.forEach(item => {
+        if (!maInserted && maBlockValue >= item._sortValue) {
+            doubleItems.push({ type: 'ma', sortValue: maBlockValue, rows: maRows });
+            maInserted = true;
+        }
+        const daiSorted = item.data.带花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
+        const shaoSorted = item.data.少量花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
+        doubleItems.push({ type: 'other', sortValue: item._sortValue, rows: [...daiSorted, ...shaoSorted] });
+    });
+    if (!maInserted) doubleItems.push({ type: 'ma', sortValue: maBlockValue, rows: maRows });
+
+    const singleItems = [];
+    otherSingle.forEach(item => {
+        const rows = item.data.带花.length ? item.data.带花 : item.data.少量花;
+        rows.sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
+        singleItems.push({ type: 'other', sortValue: item._sortValue, rows: rows });
+    });
+    const chongbanRows = [];
+    chongbanItems.forEach(item => {
+        const daiSorted = item.data.带花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
+        const shaoSorted = item.data.少量花.slice().sort((a,b) => (Number(b.原始数量)||0) - (Number(a.原始数量)||0));
+        chongbanRows.push(...daiSorted); chongbanRows.push(...shaoSorted);
+    });
+    singleItems.push({ type: 'chongban', sortValue: chongbanBlockValue, rows: chongbanRows });
+    singleItems.sort((a, b) => b.sortValue - a.sortValue);
+
+    const result = [];
+    doubleItems.forEach(item => result.push(...item.rows));
+    singleItems.forEach(item => result.push(...item.rows));
+    combines.sort((a, b) => a.品种.localeCompare(b.品种));
+    result.push(...combines);
+    return result;
+}
+
+function matchVariety(n) {
+    n = n.trim();
+    if (!n) return null;
+    if (appData.variety_list.includes(n)) return n;
+    if (appData.alias_map[n]) return appData.alias_map[n];
+    if (n.includes("+") || n.includes("＋")) {
+        let converted = n.replace(/\+/g, "＋");
+        if (appData.variety_list.includes(converted)) return converted;
+        if (appData.variety_list.includes(converted + "组合")) return converted + "组合";
+        if (converted.endsWith("组合")) {
+            const without = converted.slice(0, -2);
+            if (appData.variety_list.includes(without)) return without;
+        }
+        if (appData.alias_map[converted]) return appData.alias_map[converted];
+        if (appData.alias_map[converted + "组合"]) return appData.alias_map[converted + "组合"];
+        const parts = n.split(/[\+\＋]/).map(s => s.trim());
+        if (parts.length === 2) {
+            const a = matchVariety(parts[0]);
+            const b = matchVariety(parts[1]);
+            if (a && b) {
+                const candidates = [a + "＋" + b, a + "＋" + b + "组合", b + "＋" + a, b + "＋" + a + "组合"];
+                for (const cand of candidates) {
+                    if (appData.variety_list.includes(cand)) return cand;
+                    if (appData.alias_map[cand]) return appData.alias_map[cand];
+                }
+                return a + "＋" + b;
+            }
+        }
+    }
+    if (n.endsWith("组合")) {
+        const without = n.slice(0, -2);
+        if (appData.variety_list.includes(without)) return without;
+        if (appData.alias_map[without]) return appData.alias_map[without];
+        if (without.includes("+") || without.includes("＋")) {
+            const converted = without.replace(/\+/g, "＋");
+            if (appData.variety_list.includes(converted)) return converted;
+            if (appData.alias_map[converted]) return appData.alias_map[converted];
+        }
+    }
+    const clean = n.replace(/[（(].*[）)]/g, '').trim();
+    if (clean !== n) {
+        const m = matchVariety(clean);
+        if (m) return m;
+    }
+    return null;
+}
+
+function normalizeForCompare(name) {
+    let n = name.trim();
+    n = n.replace(/\+/g, "＋");
+    if (n.endsWith("组合")) n = n.slice(0, -2);
+    return n;
+}
+
+function findRowByVarietyPhase(variety, phase, spec) {
+    if (!variety) return null;
+    const norm = normalizeForCompare(variety);
+    const formal = matchVariety(variety);
+    const formalNorm = formal ? normalizeForCompare(formal) : null;
+    const nameSet = new Set();
+    nameSet.add(norm);
+    if (formalNorm) nameSet.add(formalNorm);
+    if (appData.alias_map[variety]) nameSet.add(normalizeForCompare(appData.alias_map[variety]));
+    for (const r of appData.pure_rows) {
+        if (r.品相 !== phase) continue;
+        if (spec !== undefined && (r.规格||'') !== spec) continue;
+        const rNorm = normalizeForCompare(r.品种);
+        if (nameSet.has(rNorm)) return r;
+        const rFormal = matchVariety(r.品种);
+        if (rFormal) {
+            const rFormalNorm = normalizeForCompare(rFormal);
+            if (nameSet.has(rFormalNorm)) return r;
+        }
+    }
+    if (phase === "组合") {
+        for (const r of appData.pure_rows) {
+            if (r.品相 !== "组合") continue;
+            if (spec !== undefined && (r.规格||'') !== spec) continue;
+            const rNorm = normalizeForCompare(r.品种);
+            if (nameSet.has(rNorm)) return r;
+            const rFormal = matchVariety(r.品种);
+            if (rFormal) {
+                const rFormalNorm = normalizeForCompare(rFormal);
+                if (nameSet.has(rFormalNorm)) return r;
+            }
+            const parts = r.品种.split(/[\+\＋]/).map(s => s.trim());
+            if (parts.length === 2) {
+                const a = matchVariety(parts[0]);
+                const b = matchVariety(parts[1]);
+                if (a && b) {
+                    const combName = a + "＋" + b;
+                    if (nameSet.has(normalizeForCompare(combName))) return r;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function findRowByVarietyPhaseIgnoreSpec(variety, phase) {
+    if (!variety) return null;
+    const norm = normalizeForCompare(variety);
+    const formal = matchVariety(variety);
+    const formalNorm = formal ? normalizeForCompare(formal) : null;
+    const nameSet = new Set();
+    nameSet.add(norm);
+    if (formalNorm) nameSet.add(formalNorm);
+    if (appData.alias_map[variety]) nameSet.add(normalizeForCompare(appData.alias_map[variety]));
+    for (const r of appData.pure_rows) {
+        if (r.品相 !== phase) continue;
+        const rNorm = normalizeForCompare(r.品种);
+        if (nameSet.has(rNorm)) return r;
+        const rFormal = matchVariety(r.品种);
+        if (rFormal) {
+            const rFormalNorm = normalizeForCompare(rFormal);
+            if (nameSet.has(rFormalNorm)) return r;
+        }
+    }
+    if (phase === "组合") {
+        for (const r of appData.pure_rows) {
+            if (r.品相 !== "组合") continue;
+            const rNorm = normalizeForCompare(r.品种);
+            if (nameSet.has(rNorm)) return r;
+            const rFormal = matchVariety(r.品种);
+            if (rFormal) {
+                const rFormalNorm = normalizeForCompare(rFormal);
+                if (nameSet.has(rFormalNorm)) return r;
+            }
+            const parts = r.品种.split(/[\+\＋]/).map(s => s.trim());
+            if (parts.length === 2) {
+                const a = matchVariety(parts[0]);
+                const b = matchVariety(parts[1]);
+                if (a && b) {
+                    const combName = a + "＋" + b;
+                    if (nameSet.has(normalizeForCompare(combName))) return r;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// ============================================================
+// ★ 核心：组合库存重算（问题 3 + 问题 5 修复版）
+// ============================================================
+function recalculateCombines(fixedPureIdx) {
+    try {
+        const cfg = appData.autoCombineCfg.filter(c => !c.lock);
+        const combineMap = {};
+        appData.pure_rows.forEach((r, idx) => {
+            if (r.品相 === "组合" && r._isCombine) combineMap[r.品种] = idx;
+        });
+        function parseCombineName(name) {
+            let n = name.trim();
+            let base = n.replace(/组合$/, "").trim();
+            const parts = base.split(/[\+\＋]/).map(s => s.trim());
+            if (parts.length === 2) {
+                const a = matchVariety(parts[0]);
+                const b = matchVariety(parts[1]);
+                if (a && b) return { a, b, rawName: n };
+            }
+            return null;
+        }
+        const allCombineCfg = [];
+        const seenNames = new Set();
+        for (const c of cfg) {
+            const parsed = parseCombineName(c.name);
+            if (parsed) {
+                allCombineCfg.push({ name: c.name, a: parsed.a, b: parsed.b, lock: c.lock, _manual: false });
+                seenNames.add(c.name);
+            } else {
+                const a = matchVariety(c.a);
+                const b = matchVariety(c.b);
+                if (a && b) {
+                    allCombineCfg.push({ name: c.name, a, b, lock: c.lock, _manual: false });
+                    seenNames.add(c.name);
+                }
+            }
+        }
+        for (const r of appData.pure_rows) {
+            if (r.品相 === "组合" && r._isCombine) {
+                const name = r.品种;
+                if (!seenNames.has(name) && (name.includes("+") || name.includes("＋"))) {
+                    const parsed = parseCombineName(name);
+                    if (parsed) {
+                        allCombineCfg.push({ name: name, a: parsed.a, b: parsed.b, lock: false, _manual: true });
+                        seenNames.add(name);
+                    }
+                }
+            }
+        }
+        if (allCombineCfg.length === 0) return;
+
+        // 获取当前用户正在编辑的组合（固定值）
+        let fixedName = null, fixedIdx = -1, fixedCfg = null;
+        if (fixedPureIdx !== undefined && fixedPureIdx !== null && fixedPureIdx >= 0 && fixedPureIdx < appData.pure_rows.length) {
+            const row = appData.pure_rows[fixedPureIdx];
+            if (row.品相 === "组合" && row._isCombine) {
+                fixedName = row.品种;
+                fixedIdx = fixedPureIdx;
+                fixedCfg = allCombineCfg.find(c => c.name === fixedName);
+            }
+        }
+
+        const assigned = {}, used = {};
+
+        // ===== 第一步：手动修改过的组合，优先保留其值 =====
+        // 收集所有"被用户手动修改过"的组合，按修改顺序处理
+        const manualNames = Object.keys(appData._manualCombineValues || {}).filter(n => seenNames.has(n));
+        // 如果当前固定的是某一个组合，也把它排在最前面
+        if (fixedCfg && !manualNames.includes(fixedCfg.name)) manualNames.unshift(fixedCfg.name);
+
+        // 先计算每个组合可用的"少量花"库存（不区分独有/共享）
+        const varietyStock = {};
+        appData.pure_rows.forEach(r => {
+            if (r.品相 === "少量花" && !r._isCombine) {
+                const v = Number(r.原始数量) || 0;
+                varietyStock[r.品种] = (varietyStock[r.品种] || 0) + v;
+            }
+        });
+
+        // 处理手动修改过的组合
+        for (const name of manualNames) {
+            const c = allCombineCfg.find(x => x.name === name);
+            if (!c) continue;
+            const stockA = varietyStock[c.a] || 0;
+            const stockB = varietyStock[c.b] || 0;
+            const maxTake = Math.min(stockA, stockB);
+            const userVal = Number(appData._manualCombineValues[name]) || 0;
+            const take = Math.min(userVal, maxTake);
+            if (take < userVal) {
+                alert(`“${name}”的数量不能超过 ${maxTake}，已自动调整`);
+                appData._manualCombineValues[name] = take;
+            }
+            assigned[c.name] = take;
+            used[c.a] = (used[c.a] || 0) + take;
+            used[c.b] = (used[c.b] || 0) + take;
+        }
+
+        // ===== 第二步：处理共享品种（问题5核心逻辑） =====
+        const sharedResolved = new Set();
+        const varToCombines = {};
+        for (const c of allCombineCfg) {
+            for (const v of [c.a, c.b]) {
+                if (!varToCombines[v]) varToCombines[v] = [];
+                varToCombines[v].push(c);
+            }
+        }
+        for (const v in varToCombines) {
+            const cfgs = varToCombines[v];
+            if (cfgs.length === 2) {
+                const cA = cfgs[0], cB = cfgs[1];
+                // 如果这两个组合已经手动赋值过，跳过
+                if (assigned[cA.name] !== undefined && assigned[cB.name] !== undefined) continue;
+                if (sharedResolved.has(cA.name) || sharedResolved.has(cB.name)) continue;
+
+                const uA = (cA.a === v) ? cA.b : cA.a;
+                const uB = (cB.a === v) ? cB.b : cB.a;
+
+                // 获取库存（已扣除手动组合使用掉的部分）
+                const qS = Math.max(0, (varietyStock[v] || 0) - (used[v] || 0));
+                const qUA = Math.max(0, (varietyStock[uA] || 0) - (used[uA] || 0));
+                const qUB = Math.max(0, (varietyStock[uB] || 0) - (used[uB] || 0));
+
+                if (qS === 0) {
+                    if (assigned[cA.name] === undefined) assigned[cA.name] = 0;
+                    if (assigned[cB.name] === undefined) assigned[cB.name] = 0;
+                    sharedResolved.add(cA.name); sharedResolved.add(cB.name);
+                    continue;
+                }
+
+                let takeA = 0, takeB = 0;
+
+                if (qUA === 0 && qUB === 0) {
+                    takeA = 0; takeB = 0;
+                } else if (qUA > 0 && qUB === 0) {
+                    takeA = Math.min(qS, qUA);
+                    takeB = 0;
+                } else if (qUB > 0 && qUA === 0) {
+                    takeB = Math.min(qS, qUB);
+                    takeA = 0;
+                } else {
+                    // 双方独有品种都有库存，按"最少品种"规则分配
+                    const minQ = Math.min(qS, qUA, qUB);
+                    if (minQ === qS) {
+                        // 共享品种最少 → 平分
+                        takeA = Math.floor(qS / 2);
+                        takeB = Math.floor(qS / 2);
+                    } else if (minQ === qUA) {
+                        // A的独有品种最少 → A拿满自己的独有，剩下的共享给B
+                        takeA = qUA;
+                        const remS = qS - takeA;
+                        takeB = Math.min(remS, qUB);
+                    } else if (minQ === qUB) {
+                        // B的独有品种最少 → B拿满自己的独有，剩下的共享给A
+                        takeB = qUB;
+                        const remS = qS - takeB;
+                        takeA = Math.min(remS, qUA);
+                    }
+                }
+
+                // 如果其中一个组合有手动值，则尊重手动值
+                if (appData._manualCombineValues && appData._manualCombineValues[cA.name] !== undefined && assigned[cA.name] === undefined) {
+                    takeA = Math.max(0, Math.min(appData._manualCombineValues[cA.name], qS, qUA));
+                    const remS = qS - takeA;
+                    takeB = Math.min(remS, qUB);
+                }
+                if (appData._manualCombineValues && appData._manualCombineValues[cB.name] !== undefined && assigned[cB.name] === undefined) {
+                    takeB = Math.max(0, Math.min(appData._manualCombineValues[cB.name], qS, qUB));
+                    const remS = qS - takeB;
+                    takeA = Math.min(remS, qUA);
+                }
+
+                if (assigned[cA.name] === undefined) assigned[cA.name] = takeA;
+                if (assigned[cB.name] === undefined) assigned[cB.name] = takeB;
+                used[v] = (used[v] || 0) + (assigned[cA.name] || 0) + (assigned[cB.name] || 0);
+                used[uA] = (used[uA] || 0) + (assigned[cA.name] || 0);
+                used[uB] = (used[uB] || 0) + (assigned[cB.name] || 0);
+                sharedResolved.add(cA.name); sharedResolved.add(cB.name);
+            }
+        }
+
+        // ===== 第三步：剩余的常规组合处理 =====
+        for (const c of allCombineCfg) {
+            if (assigned[c.name] !== undefined) continue;
+            const availA = Math.max(0, (varietyStock[c.a] || 0) - (used[c.a] || 0));
+            const availB = Math.max(0, (varietyStock[c.b] || 0) - (used[c.b] || 0));
+            let take;
+            if (appData._manualCombineValues && appData._manualCombineValues[c.name] !== undefined) {
+                take = Math.max(0, Math.min(appData._manualCombineValues[c.name], availA, availB));
+            } else {
+                take = Math.max(0, Math.min(availA, availB));
+            }
+            assigned[c.name] = take;
+            used[c.a] = (used[c.a] || 0) + take;
+            used[c.b] = (used[c.b] || 0) + take;
+        }
+
+        // ===== 第四步：更新 UI 并清理 =====
+        for (const c of allCombineCfg) {
+            const name = c.name;
+            const idx = combineMap[name];
+            if (idx !== undefined) appData.pure_rows[idx].原始数量 = assigned[name] || 0;
+            else {
+                appData.pure_rows.push({
+                    品种: name, 品相: "组合", 原始数量: assigned[name] || 0,
+                    备注: "", 下架: false, _isCombine: true, _isSystemCombine: true, 规格: ''
+                });
+            }
+        }
+        const cfgNames = new Set(allCombineCfg.map(c => c.name));
+        for (let i = appData.pure_rows.length - 1; i >= 0; i--) {
+            const r = appData.pure_rows[i];
+            if (r._isCombine && r.品相 === "组合" && !cfgNames.has(r.品种)) appData.pure_rows.splice(i, 1);
+        }
+    } catch (e) {
+        console.error("recalculateCombines error:", e);
+    }
+}
+
+function syncCombines() {
+    try {
+        const cfg = appData.autoCombineCfg.filter(c => !c.lock);
+        for (const c of cfg) {
+            const exists = appData.pure_rows.some(r => r.品种 === c.name && r.品相 === "组合");
+            if (!exists) {
+                appData.pure_rows.push({
+                    品种: c.name, 品相: "组合", 原始数量: 0,
+                    备注: "", 下架: false, _isCombine: true, _isSystemCombine: true, 规格: ''
+                });
+            }
+        }
+        recalculateCombines(null);
+    } catch (e) {
+        console.error("syncCombines error:", e);
+    }
+}
+
+function assembleFullData() { return appData.pure_rows; }
+
+function findPureIndex(target) {
+    if (!target) return -1;
+    for (let i = 0; i < appData.pure_rows.length; i++) {
+        const r = appData.pure_rows[i];
+        if (r.品种 === target.品种 && r.品相 === target.品相 &&
+            r.下架 === target.下架 && r._isCombine === !!target._isCombine &&
+            (r.规格||'') === (target.规格||'')) return i;
+    }
+    return -1;
+}
+
+function deleteVariety(idx) {
+    if (idx < 0 || idx >= appData.variety_list.length) return;
+    const name = appData.variety_list[idx];
+    const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === name);
+    appData.deletedStack.push({ name, aliases });
+    appData.variety_list.splice(idx, 1);
+    aliases.forEach(a => delete appData.alias_map[a]);
+    saveStorage();
+    renderLibList();
+    document.getElementById('btnUndoDelete').style.display = appData.deletedStack.length ? 'inline-block' : 'none';
+}
+
+function undoDelete() {
+    if (appData.deletedStack.length === 0) return;
+    const item = appData.deletedStack.pop();
+    if (!appData.variety_list.includes(item.name)) appData.variety_list.push(item.name);
+    item.aliases.forEach(a => { appData.alias_map[a] = item.name; });
+    saveStorage();
+    renderLibList();
+    document.getElementById('btnUndoDelete').style.display = appData.deletedStack.length ? 'inline-block' : 'none';
+}
+
+function pushDeleteHistory(action) {
+    if (!appData.deleteHistory) appData.deleteHistory = [];
+    appData.deleteHistory.push(action);
+    if (appData.deleteHistory.length > 50) appData.deleteHistory.shift();
+}
+
+function undoTableDelete() {
+    if (!appData.deleteHistory || appData.deleteHistory.length === 0) {
+        alert("没有可撤销的删除操作");
+        return;
+    }
+    const action = appData.deleteHistory.pop();
+    if (action.type === 'col') {
+        if (!appData.customCols.includes(action.name)) appData.customCols.push(action.name);
+        saveStorage();
+        renderTable();
+        showToast('✅ 已撤销删除列：' + action.name);
+        return;
+    }
+    const items = (action.items || []).slice().sort((a, b) => a.idx - b.idx);
+    if (items.length === 0) { alert("没有可撤销的删除操作"); return; }
+    for (const it of items) {
+        const r = it.row;
+        if (!r) continue;
+        if (r.品相 === "组合" && r._isCombine) {
+            const dup = appData.pure_rows.some(x => x.品种 === r.品种 && x.品相 === "组合" && x._isCombine);
+            if (!dup) appData.pure_rows.splice(Math.min(it.idx, appData.pure_rows.length), 0, r);
+        } else {
+            appData.pure_rows.splice(Math.min(it.idx, appData.pure_rows.length), 0, r);
+        }
+    }
+    recalculateCombines(null);
+    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    selectedRows.clear();
+    renderTable();
+    saveStorage();
+    showToast('✅ 已撤销删除 ' + items.length + ' 行');
+}
+
+function deleteRow(rowIdx) {
+    const full = assembleFullData();
+    if (rowIdx >= full.length) return;
+    const t = full[rowIdx];
+    const idx = findPureIndex(t);
+    if (idx >= 0) {
+        pushDeleteHistory({ type: 'row', items: [{ row: JSON.parse(JSON.stringify(appData.pure_rows[idx])), idx }] });
+        appData.pure_rows.splice(idx, 1);
+        if (t.品相 === "组合" && t._isCombine) recalculateCombines(null);
+        appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+        appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+        selectedRows.clear();
+        renderTable();
+        saveStorage();
+    }
+}
+
+function moveRow(rowIdx, dir) {
+    const full = assembleFullData();
+    if (rowIdx >= full.length) return;
+    const t = full[rowIdx];
+    const idx = findPureIndex(t);
+    if (idx === -1) { alert("找不到该行数据"); return; }
+    const len = appData.pure_rows.length;
+    if (dir === "up" && idx > 0) {
+        [appData.pure_rows[idx - 1], appData.pure_rows[idx]] = [appData.pure_rows[idx], appData.pure_rows[idx - 1]];
+    } else if (dir === "down" && idx < len - 1) {
+        [appData.pure_rows[idx], appData.pure_rows[idx + 1]] = [appData.pure_rows[idx + 1], appData.pure_rows[idx]];
+    } else { return; }
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    selectedRows.clear();
+    renderTable();
+    saveStorage();
+}
+
+function manualAddRow() {
+    appData.pure_rows.push({ 品种: "", 品相: "带花", 原始数量: 0, 备注: "", 下架: false, _isCombine: false, _isSystemCombine: false, 规格: '' });
+    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    selectedRows.clear();
+    renderTable();
+    saveStorage();
+}
+
+function deleteSelectedRows() {
+    if (selectedRows.size === 0) { alert("请先勾选要删除的行"); return; }
+    if (!confirm(`确定删除 ${selectedRows.size} 行吗？`)) return;
+    const sorted = Array.from(selectedRows).sort((a,b)=>b-a);
+    const items = [];
+    for (const idx of sorted) {
+        if (idx >= 0 && idx < appData.pure_rows.length) {
+            items.push({ row: JSON.parse(JSON.stringify(appData.pure_rows[idx])), idx });
+            appData.pure_rows.splice(idx, 1);
+        }
+    }
+    if (items.length) pushDeleteHistory({ type: 'row', items });
+    recalculateCombines(null);
+    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    selectedRows.clear();
+    renderTable();
+    saveStorage();
+}
+
+function addCustomCol() {
+    const n = prompt("输入新增列标题：");
+    if (n && n.trim()) {
+        appData.customCols.push(n.trim());
+        saveStorage();
+        renderTable();
+    }
+}
+
+function openExportPopup() { fillExportText(); document.getElementById("exportPopup").classList.remove("hide"); }
+function closeExportPopup() { document.getElementById("exportPopup").classList.add("hide"); }
+
+function getSalePrice(row) {
+    if (!row) return null;
+    const varietyName = row.品种;
+    const phase = row.品相;
+    if (phase === "组合") {
+        return appData.variety_prices[varietyName] !== undefined ? appData.variety_prices[varietyName] : null;
+    }
+    const basePrice = appData.variety_prices[varietyName];
+    if (basePrice === undefined) return null;
+    if (phase === "带花") return basePrice;
+    if (phase === "少量花") {
+        if (varietyName.includes("变色龙")) return basePrice;
+        return basePrice - 1;
+    }
+    return null;
+}
+
+function fillExportText() {
+    const mode = document.querySelector('input[name="exportMode"]:checked').value;
+    const full = assembleFullData();
+    const buf = [];
+    if (mode === "backup") {
+        buf.push("品种\t卖价\t品相\t原始数量\t销量\t剩余库存\t抖音\t微信\t备注");
+        full.forEach(r => {
+            const calc = calcRow(r);
+            const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
+            const salePrice = getSalePrice(r);
+            buf.push(`${displayName}\t${r.品相}\t${salePrice !== null ? salePrice : ''}\t${r.原始数量}\t${calc["销量"]}\t${calc["剩余库存"]}\t${calc["抖音"]}\t${calc["微信"]}\t${r.备注||""}`);
+        });
+    } else {
+        const nr = full.filter(r => !r.下架);
+        const hasShao = nr.some(x => x.品相 === "少量花"), hasDai = nr.some(x => x.品相 === "带花");
+        if (hasShao) {
+            buf.push("少量花");
+            nr.filter(x => x.品相 === "少量花").forEach(r => {
+                const dn = r.规格 ? r.品种 + r.规格 : r.品种;
+                buf.push(`【${dn}】${r.原始数量}${r.备注||""}`);
+            });
+        }
+        if (hasDai) {
+            buf.push("带花");
+            nr.filter(x => x.品相 === "带花").forEach(r => {
+                const dn = r.规格 ? r.品种 + r.规格 : r.品种;
+                buf.push(`${dn}${r.原始数量}${r.备注||""}`);
+            });
+        }
+        const combRows = nr.filter(x => x.品相 === "组合");
+        if (combRows.length > 0) {
+            buf.push("组合");
+            combRows.forEach(r => {
+                buf.push(`${r.品种}\t${r.原始数量}`);
+            });
+        }
+    }
+    document.getElementById("exportTextarea").value = buf.join("\n");
+}
+
+function copyExportText() {
+    const ta = document.getElementById("exportTextarea");
+    ta.select();
+    document.execCommand("copy");
+    alert("已复制全部导出文本，可直接粘贴到 Excel");
+}
+
+function saveExportToFile() {
+    const ta = document.getElementById("exportTextarea");
+    const content = ta.value;
+    if (!content.trim()) { alert("没有内容可保存，请先点击\"刷新导出内容\""); return; }
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+    const filename = `三角梅库存_${dateStr}.txt`;
+    let file = null;
+    try { file = new File([content], filename, { type: 'text/plain;charset=utf-8' }); } catch (e) {}
+    if (file && navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+        navigator.share({ files: [file], title: '三角梅库存备份', text: '库存数据备份 ' + dateStr })
+        .then(() => {})
+        .catch(err => {
+            if (err && err.name === 'AbortError') return;
+            fallbackDownload(content, filename);
+        });
+        return;
+    }
+    fallbackDownload(content, filename);
+}
+
+function fallbackDownload(content, filename) {
+    const blob = new Blob(["\ufeff", content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    alert(`✅ 已保存文件：${filename}\n\n如果浏览器没有自动下载，请：\n1. 检查手机的"下载"或"文件管理"App\n2. 或长按导出的内容手动保存`);
+}
+
+function saveAllData() {
+    saveStorage();
+    showToast('✅ 所有数据已保存');
+}
+
+function showToast(msg) {
+    const t = document.getElementById('saveToast');
+    t.innerText = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1500);
+}
+
+function deleteDiffData() {
+    if (!confirm("确定删除差异对比的输入框和结果吗？（不影响表格数据）")) return;
+    document.getElementById("diffOld").value = "";
+    document.getElementById("diffNew").value = "";
+    document.getElementById("diffResult").innerText = "";
+    appData.diffOldText = "";
+    appData.diffNewText = "";
+    appData.diffResultText = "";
+    saveStorage();
+    alert("差异数据已删除");
+}
+
+function doImportBackup() {
+    const txt = document.getElementById("importTextArea").value;
+    if (!txt.trim()) { alert("请粘贴备份文本"); return; }
+    if (!confirm("导入会覆盖当前表格，确认？")) return;
+    const newPure = [];
+    const newSales = {};
+    txt.split("\n").forEach(line => {
+        const s = line.trim();
+        if (!s) return;
+        if (s.startsWith("品种\t品相\t")) return;
+        if (s.startsWith("====")) return;
+        let real = s;
+        if (s.startsWith("【组合】")) real = s.replace("【组合】", "");
+        const parts = real.split("\t");
+        if (parts.length >= 3) {
+            const isCombine = parts[1] === "组合";
+            let varName = parts[0] || "";
+            let spec = '';
+            const m = varName.match(/^(.*?)(粗|细)$/);
+            if (m) { varName = m[1]; spec = m[2]; }
+            varName = normalizeVariety(varName);
+            let remark = "";
+            let sales = 0;
+            if (parts.length >= 8) {
+                sales = Number(parts[3]) || 0;
+                remark = parts[7] || "";
+            } else if (parts.length >= 4) {
+                remark = parts[3] || "";
+            }
+            newPure.push({
+                品种: varName, 品相: parts[1] || "", 原始数量: Number(parts[2]) || 0,
+                备注: remark, 下架: false, _isCombine: isCombine,
+                _isSystemCombine: isCombine, 规格: spec
+            });
+            if (sales > 0) newSales[`${varName}||${parts[1]}||${spec}`] = sales;
+        }
+    });
+    appData.pure_rows = newPure;
+    appData.sales_dict = newSales;
+    syncCombines();
+    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    selectedRows.clear();
+    goPage("table");
+    renderTable();
+    saveStorage();
+    alert("导入完成");
+}
+
+// ============================================================
+// ★ 快照功能（问题2修复版）
+// ============================================================
+function getSnapshots() { const r = localStorage.getItem(SNAPSHOT_KEY); return r ? JSON.parse(r) : []; }
+function saveSnapshots(arr) { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(arr)); }
+
+function createSnapshot() {
+    const arr = getSnapshots();
+    arr.push({ time: new Date().toLocaleString(), pure_rows: JSON.parse(JSON.stringify(appData.pure_rows)) });
+    if (arr.length > 10) arr.shift();
+    saveSnapshots(arr);
+    alert("快照已建立");
+    renderSnapshotList();
+}
+
+function restoreSnapshot(idx) {
+    const arr = getSnapshots();
+    const snap = arr[idx];
+    if (!snap) return;
+    if (confirm("恢复快照会覆盖当前表格，确认？")) {
+        appData.pure_rows = JSON.parse(JSON.stringify(snap.pure_rows));
+        syncCombines();
+        appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+        appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+        appData.highlightedRows = new Set();
+        appData.remainFilterValues = [];
+        selectedRows.clear();
+        goPage("table");
+        renderTable();
+        saveStorage();
+    }
+}
+
+function deleteSnapshot(idx) {
+    const arr = getSnapshots();
+    if (idx < 0 || idx >= arr.length) return;
+    if (!confirm(`确定删除快照“${arr[idx].time}”吗？`)) return;
+    arr.splice(idx, 1);
+    saveSnapshots(arr);
+    renderSnapshotList();
+    alert("快照已删除");
+}
+
+let _snapCurrentRows = [];  // 快照详情页当前展示的数据
+
+function viewSnapshot(idx) {
+    const arr = getSnapshots();
+    const snap = arr[idx];
+    if (!snap) return;
+    const pureRows = JSON.parse(JSON.stringify(snap.pure_rows || []));
+    _snapCurrentRows = pureRows;
+    document.getElementById("snapDetailTime").innerText = snap.time;
+    applySnapDetailView();
+    document.getElementById("popSnapDetail").classList.remove("hide");
+}
+
+function applySnapDetailView() {
+    // 应用排序
+    let rows = _snapCurrentRows.slice();
+    const state = appData._snapDetailState;
+    if (state.sortMode === 'salesDesc') {
+        rows.sort((a, b) => {
+            const keyA = `${a.品种}||${a.品相}||${a.规格||''}`;
+            const keyB = `${b.品种}||${b.品相}||${b.规格||''}`;
+            return (Number(appData.sales_dict[keyB] || 0)) - (Number(appData.sales_dict[keyA] || 0));
+        });
+    }
+    // 应用筛选
+    if (state.filterValues && state.filterValues.length > 0) {
+        const filterSet = new Set(state.filterValues);
+        rows = rows.filter(r => {
+            if (r.品相 === "组合") return true;
+            const remain = calcRow(r)["剩余库存"];
+            return !filterSet.has(remain);
+        });
+    }
+
+    let html = `<div style="max-height:60vh;overflow:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr>
+    <th style="border:1px solid #ddd;padding:4px;background:#e9edff;">品种</th>
+    <th style="border:1px solid #ddd;padding:4px;background:#e9edff;">品相</th>
+    <th style="border:1px solid #ddd;padding:4px;background:#e9edff;">原始数量</th>
+    <th style="border:1px solid #ddd;padding:4px;background:#e9edff;">销量</th>
+    <th style="border:1px solid #ddd;padding:4px;background:#e9edff;">剩余库存</th>
+    <th style="border:1px solid #ddd;padding:4px;background:#e9edff;">抖音</th>
+    <th style="border:1px solid #ddd;padding:4px;background:#e9edff;">微信</th>
+    <th style="border:1px solid #ddd;padding:4px;background:#e9edff;">备注</th>
+    </tr></thead><tbody>`;
+
+    let zebraIdx = 0;
+    rows.forEach(r => {
+        const calc = calcRow(r);
+        const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
+        const cls = [];
+        if (r._isCombine) cls.push('snap-zebra-even');
+        else { cls.push(zebraIdx % 2 === 0 ? 'snap-zebra-even' : 'snap-zebra-odd'); zebraIdx++; }
+        if (r._updatedHighlight) cls.push('snap-updated');
+        const remainCls = (Number(calc["剩余库存"]) || 0) <= 0 ? 'snap-cell-red' : '';
+        html += `<tr class="${cls.join(' ')}">
+        <td style="border:1px solid #ddd;padding:4px;text-align:center;">${displayName}</td>
+        <td style="border:1px solid #ddd;padding:4px;text-align:center;">${r.品相}</td>
+        <td style="border:1px solid #ddd;padding:4px;text-align:center;" class="${r._diffUpdated ? 'snap-diff-yellow' : ''}">${r.原始数量}</td>
+        <td style="border:1px solid #ddd;padding:4px;text-align:center;">${calc["销量"]}</td>
+        <td style="border:1px solid #ddd;padding:4px;text-align:center;" class="${remainCls}">${calc["剩余库存"]}</td>
+        <td style="border:1px solid #ddd;padding:4px;text-align:center;">${calc["抖音"]}</td>
+        <td style="border:1px solid #ddd;padding:4px;text-align:center;">${calc["微信"]}</td>
+        <td style="border:1px solid #ddd;padding:4px;text-align:center;">${r.备注||""}</td>
+        </tr>`;
+    });
+    html += `</tbody></table></div>`;
+    document.getElementById("snapDetailContent").innerHTML = html;
+}
+
+function snapDetailSort() {
+    const state = appData._snapDetailState;
+    const choice = prompt("选择排序方式：\n1 = 按销量降序\n0 = 取消排序", state.sortMode === 'salesDesc' ? '1' : '0');
+    if (choice === '1') { state.sortMode = 'salesDesc'; }
+    else if (choice === '0') { state.sortMode = 'none'; }
+    else return;
+    applySnapDetailView();
+}
+
+function snapDetailFilter() {
+    let rows = _snapCurrentRows.filter(r => r.品相 !== "组合");
+    const remainSet = new Set();
+    rows.forEach(r => {
+        const remain = calcRow(r)["剩余库存"];
+        if (remain !== undefined && remain !== null) remainSet.add(remain);
+    });
+    const values = Array.from(remainSet).sort((a, b) => a - b);
+    if (values.length === 0) { alert('当前没有可筛选的剩余库存数据'); return; }
+    const listDiv = document.getElementById('snapFilterList');
+    listDiv.innerHTML = '';
+    const selected = new Set(appData._snapDetailState.filterValues || []);
+    values.forEach(val => {
+        const label = document.createElement('label');
+        label.style.display = 'block';
+        label.style.padding = '4px 0';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = val;
+        if (selected.has(val)) cb.checked = true;
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(' ' + val));
+        listDiv.appendChild(label);
+    });
+    document.getElementById('popSnapFilter').classList.remove('hide');
+}
+
+function snapDetailReset() {
+    appData._snapDetailState = { sortMode: 'none', filterValues: [], selectedCols: [] };
+    applySnapDetailView();
+    showToast('✅ 已重置');
+}
+
+function snapDetailDownload() {
+    const selected = appData._snapDetailState.selectedCols || [];
+    if (selected.length === 0) {
+        // 弹窗让用户选择列
+        const cols = ["品种","品相","原始数量","销量","剩余库存","抖音","微信","备注"];
+        const input = prompt("请输入要下载的列号（从1开始，逗号分隔）：\n1=品种 2=品相 3=原始数量 4=销量 5=剩余库存 6=抖音 7=微信 8=备注", "1,2,3,4,5,6,7,8");
+        if (!input) return;
+        const nums = input.split(/[,，\s]+/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 1 && n <= cols.length);
+        if (nums.length === 0) { alert("未选择任何有效列"); return; }
+        appData._snapDetailState.selectedCols = nums.map(n => cols[n-1]);
+    }
+    const content = document.getElementById("snapDetailContent");
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.background = '#ffffff';
+    container.style.padding = '12px';
+    container.innerHTML = content.innerHTML;
+    // 移除不需要的列
+    const keepCols = appData._snapDetailState.selectedCols;
+    const allCols = ["品种","品相","原始数量","销量","剩余库存","抖音","微信","备注"];
+    const keepIdx = keepCols.map(c => allCols.indexOf(c)).filter(i => i >= 0);
+    container.querySelectorAll('tr').forEach(tr => {
+        const cells = tr.children;
+        for (let i = cells.length - 1; i >= 0; i--) {
+            if (!keepIdx.includes(i)) cells[i].parentNode.removeChild(cells[i]);
+        }
+    });
+        container.querySelectorAll('th, td').forEach(cell => {
+        cell.style.border = '1px solid #ddd';
+        cell.style.padding = '2px 4px'; // 紧凑的内边距
+        cell.style.textAlign = 'center';
+        cell.style.whiteSpace = 'nowrap';
+        cell.style.minWidth = 'auto';   // 防止表头被撑开
+    });
+    document.body.appendChild(container);
+    html2canvas(container, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'snapshot.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        document.body.removeChild(container);
+    }).catch(err => {
+        console.error('截图失败:', err);
+        alert('下载图片失败，请重试。');
+        document.body.removeChild(container);
+    });
+}
+
+function renderSnapshotList() {
+    const wrap = document.getElementById("snapshotList");
+    wrap.innerHTML = "";
+    const arr = getSnapshots();
+    if (!arr.length) { wrap.innerHTML = "<div>暂无快照</div>"; return; }
+    arr.forEach((s, i) => {
+        const d = document.createElement("div");
+        d.className = "snapshot-item";
+        d.innerHTML = `<span>${s.time}</span>
+        <div>
+        <button data-snap-view="${i}" style="background:#17a2b8;">查看详情</button>
+        <button data-snap-idx="${i}">恢复</button>
+        <button data-snap-del="${i}" style="background:#d9534f;">删除</button>
+        </div>`;
+        wrap.appendChild(d);
+    });
+    wrap.querySelectorAll("button[data-snap-view]").forEach(b => b.onclick = () => viewSnapshot(Number(b.dataset.snapView)));
+    wrap.querySelectorAll("button[data-snap-idx]").forEach(b => b.onclick = () => restoreSnapshot(Number(b.dataset.snapIdx)));
+    wrap.querySelectorAll("button[data-snap-del]").forEach(b => b.onclick = () => deleteSnapshot(Number(b.dataset.snapDel)));
+}
+
+function parseAnyText(text) {
+    const out = [];
+    let cp = null;
+    text.split("\n").forEach(line => {
+        const s = line.trim();
+        if (!s) return;
+        if (s === "少量花") { cp = "少量花"; return; }
+        if (s === "带花") { cp = "带花"; return; }
+        let cleanLine = s.replace(/[【】（）\(\)]/g, '').trim();
+        const match = cleanLine.match(/^(.*?)(\d+)(.*)$/);
+        if (match) {
+            let varietyName = match[1].trim();
+            const qty = parseInt(match[2], 10);
+            const remarkRaw = match[3].trim();
+            const remark = remarkRaw.replace(/…+/g, '').replace(/\.+/g, '').trim();
+            if (!varietyName) return;
+            let variety = normalizeVariety(varietyName);
+            let spec = '';
+            const suffixMatch = variety.match(/^(.*?)(粗|细)$/);
+            if (suffixMatch) {
+                const base = suffixMatch[1].trim();
+                spec = suffixMatch[2];
+                const matchedBase = matchVariety(base);
+                if (matchedBase) variety = matchedBase;
+                else {
+                    const matchedFull = matchVariety(variety);
+                    if (matchedFull) { variety = matchedFull; spec = ''; }
+                    else variety = base;
+                }
+            } else {
+                const matchedVariety = matchVariety(variety);
+                if (matchedVariety) variety = matchedVariety;
+            }
+            out.push({
+                品种: variety, 品相: cp || "带花", 原始数量: qty,
+                备注: remark, 下架: false, _isCombine: false, _isSystemCombine: false, 规格: spec
+            });
+            return;
+        }
+        let varietyName = cleanLine.replace(/无/g, "").trim();
+        if (varietyName) {
+            let remark = cleanLine.includes("无") ? "无" : "";
+            let variety = normalizeVariety(varietyName);
+            let spec = '';
+            const suffixMatch = variety.match(/^(.*?)(粗|细)$/);
+            if (suffixMatch) {
+                const base = suffixMatch[1].trim();
+                spec = suffixMatch[2];
+                const matchedBase = matchVariety(base);
+                if (matchedBase) variety = matchedBase;
+                else {
+                    const matchedFull = matchVariety(variety);
+                    if (matchedFull) { variety = matchedFull; spec = ''; }
+                    else variety = base;
+                }
+            } else {
+                const matchedVariety = matchVariety(variety);
+                if (matchedVariety) variety = matchedVariety;
+            }
+            out.push({
+                品种: variety, 品相: cp || "带花", 原始数量: 0,
+                备注: remark, 下架: false, _isCombine: false, _isSystemCombine: false, 规格: spec
+            });
+        }
+    });
+    return mergePureRows(out);
+}
+
+function checkUnknownVarieties(rows) {
+    const unknownSet = new Set();
+    rows.forEach(r => {
+        const vn = r.品种;
+        if (!vn) return;
+        const m = matchVariety(vn);
+        if (m === null) unknownSet.add(vn);
+    });
+    return [...unknownSet];
+}
+
+function doParse() {
+    try {
+        const raw = document.getElementById("rawTextArea").value;
+        let parsed = parseAnyText(raw);
+        const unknowns = checkUnknownVarieties(parsed);
+        if (unknowns.length > 0) {
+            appData.pendingNewVar = unknowns[0];
+            const nameSpan = document.getElementById("popNewVarName");
+            const pop = document.getElementById("popUnknownVar");
+            if (pop && nameSpan) {
+                nameSpan.innerText = appData.pendingNewVar;
+                pop.classList.remove("hide");
+            } else {
+                alert(`检测到新品种：${appData.pendingNewVar}，请前往品种库添加。`);
+            }
+        }
+        appData._dataSourceDate = new Date().toLocaleString('zh-CN', {hour12: false});
+        appData.pure_rows = parsed;
+        syncCombines();
+        appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+        appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+        selectedRows.clear();
+        appData.highlightedRows = new Set();
+        appData.hasValidData = true;
+        saveStorage();
+        goPage("table");
+        renderTable();
+        alert("解析完成，已跳转到表格");
+    } catch (e) {
+        alert("解析时发生错误：" + e.message);
+        console.error(e);
+    }
+}
+
+function saveSalesText() {
+    const txt = document.getElementById("salesText").value;
+    const lines = txt.split("\n").map(s => s.trim()).filter(s => s.length > 0);
+    if (lines.length === 0) { alert("请至少输入一行销量数据"); return; }
+    appData.salesPendingLines = [];
+    appData.salesAllLines = lines.slice();
+    processSalesLine(0);
+}
+
+function processSalesLine(index) {
+    const lines = appData.salesAllLines;
+    if (index >= lines.length) {
+        appData._showZeroStockAlertOnTable = true;
+        appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false}) + '（销量）';
+        renderTable();
+        saveStorage();
+        alert("所有销量导入完成！请进入表格查看结果。");
+        return;
+    }
+    const line = lines[index];
+    let variety = null, phase = null, qty = NaN, spec = '';
+    let parts = line.split("||").map(s => s.trim());
+    if (parts.length === 3) {
+        variety = parts[0]; phase = parts[1]; qty = Number(parts[2]);
+        if (!isNaN(qty) && qty >= 0) {
+            variety = variety.replace(/\+/g, "＋");
+            variety = normalizeVariety(variety);
+            const m = variety.match(/^(.*?)(粗|细)$/);
+            if (m) { spec = m[2]; variety = m[1]; }
+            const matched = matchVariety(variety);
+            if (!matched) {
+                if (confirm(`品种“${variety}”不在品种库，是否现在去新建？`)) {
+                    appData.salesPendingLines = lines.slice(index);
+                    goPage('lib');
+                    document.getElementById('libBackSales').style.display = 'inline-block';
+                    return;
+                } else { processSalesLine(index + 1); return; }
+            }
+            if (matched.includes("+") || matched.includes("＋")) {
+                phase = "组合"; spec = '';
+                const row = findRowByVarietyPhase(matched, phase, '');
+                if (!row) { alert(`表格中不存在组合品种“${matched}”品相“${phase}”的行，请检查`); processSalesLine(index + 1); return; }
+                const normalizedMatched = matched.replace(/\+/g, "＋");
+                appData.sales_dict[`${normalizedMatched}||${phase}||`] = qty;
+                processSalesLine(index + 1); return;
+            }
+            let row = null;
+            if (spec) {
+                row = findRowByVarietyPhase(matched, phase, spec);
+                if (!row) row = findRowByVarietyPhase(matched, phase, '');
+            } else {
+                row = findRowByVarietyPhase(matched, phase, '');
+                if (!row) row = findRowByVarietyPhase(matched, phase, '粗');
+                if (!row) row = findRowByVarietyPhase(matched, phase, '细');
+            }
+            if (!row) { alert(`表格中不存在品种“${matched}”品相“${phase}”的行，请检查`); processSalesLine(index + 1); return; }
+            const actualSpec = row.规格 || '';
+            const normalizedMatched = matched.replace(/\+/g, "＋");
+            appData.sales_dict[`${normalizedMatched}||${phase}||${actualSpec}`] = qty;
+            processSalesLine(index + 1); return;
+        } else { processSalesLine(index + 1); return; }
+    }
+    const bracketMatch = line.match(/【(.*?)】/);
+    if (bracketMatch) variety = bracketMatch[1].trim();
+    else {
+        const tokens = line.split(/\s+/);
+        for (const token of tokens) { if (isNaN(Number(token))) { variety = token; break; } }
+    }
+    if (!variety) { alert(`未找到品种名: ${line}`); processSalesLine(index + 1); return; }
+    const numMatch = line.match(/(\d+)\s*$/);
+    if (numMatch) qty = Number(numMatch[1]);
+    else { alert(`未找到数量: ${line}`); processSalesLine(index + 1); return; }
+    variety = normalizeVariety(variety);
+    const m = variety.match(/^(.*?)(粗|细)$/);
+    if (m) { spec = m[2]; variety = m[1]; }
+    if (!spec) {
+        if (/粗杆|粗苗|粗枝|粗的/.test(line)) spec = '粗';
+        else if (/细杆|细苗|细枝|细的/.test(line)) spec = '细';
+    }
+    variety = variety.replace(/\+/g, "＋");
+    const matchedVariety = matchVariety(variety);
+    if (!matchedVariety) {
+        if (confirm(`品种“${variety}”不在品种库，是否现在去新建？`)) {
+            appData.salesPendingLines = lines.slice(index);
+            goPage('lib');
+            document.getElementById('libBackSales').style.display = 'inline-block';
+            return;
+        } else { processSalesLine(index + 1); return; }
+    }
+    if (matchedVariety.includes("+") || matchedVariety.includes("＋")) {
+        phase = "组合"; spec = '';
+        const row = findRowByVarietyPhase(matchedVariety, phase, '');
+        if (!row) { alert(`表格中不存在组合品种“${matchedVariety}”品相“${phase}”的行，请检查`); processSalesLine(index + 1); return; }
+        const normalizedMatched = matchedVariety.replace(/\+/g, "＋");
+        appData.sales_dict[`${normalizedMatched}||${phase}||`] = qty;
+        processSalesLine(index + 1); return;
+    }
+    if (line.includes("少量花")) phase = "少量花";
+    else if (line.includes("带花")) phase = "带花";
+    else {
+        let tmpRows = appData.pure_rows.filter(r => r.品种 === matchedVariety && !r._isCombine);
+        if (spec) {
+            tmpRows = tmpRows.filter(r => (r.规格||'') === spec);
+            if (tmpRows.length === 0) tmpRows = appData.pure_rows.filter(r => r.品种 === matchedVariety && !r._isCombine && (r.规格||'') === '');
+        } else {
+            let found = tmpRows.filter(r => (r.规格||'') === '');
+            if (found.length === 0) found = tmpRows.filter(r => r.规格 === '粗');
+            if (found.length === 0) found = tmpRows.filter(r => r.规格 === '细');
+            tmpRows = found;
+        }
+        if (tmpRows.length === 0) { alert(`表格中不存在品种“${matchedVariety}”的任何行，请先录入库存`); processSalesLine(index + 1); return; }
+        if (tmpRows.length === 1) { phase = tmpRows[0].品相; spec = tmpRows[0].规格 || ''; }
+        else {
+            const shao = tmpRows.find(r => r.品相 === "少量花");
+            phase = shao ? "少量花" : tmpRows[0].品相;
+            const row = tmpRows.find(r => r.品相 === phase);
+            if (row) spec = row.规格 || '';
+        }
+    }
+    let row = null;
+    if (spec) {
+        row = findRowByVarietyPhase(matchedVariety, phase, spec);
+        if (!row) row = findRowByVarietyPhase(matchedVariety, phase, '');
+    } else {
+        row = findRowByVarietyPhase(matchedVariety, phase, '');
+        if (!row) row = findRowByVarietyPhase(matchedVariety, phase, '粗');
+        if (!row) row = findRowByVarietyPhase(matchedVariety, phase, '细');
+    }
+    if (!row) { alert(`表格中不存在品种“${matchedVariety}”品相“${phase}”的行，请检查`); processSalesLine(index + 1); return; }
+    const actualSpec = row.规格 || '';
+    const normalizedMatchedVariety = matchedVariety.replace(/\+/g, "＋");
+    appData.sales_dict[`${normalizedMatchedVariety}||${phase}||${actualSpec}`] = qty;
+    processSalesLine(index + 1);
+}
+
+function continueSalesImport() {
+    const pending = appData.salesPendingLines;
+    if (!pending || pending.length === 0) {
+        document.getElementById('libBackSales').style.display = 'none';
+        return;
+    }
+    appData.salesAllLines = pending;
+    processSalesLine(0);
+    appData.salesPendingLines = [];
+    document.getElementById('libBackSales').style.display = 'none';
+}
+
+function clearSalesInput() {
+    document.getElementById('salesText').value = '';
+    appData.sales_dict = {};
+    saveStorage();
+    renderTable();
+    alert('已清除所有销量');
+}
+
+function clearInputData() {
+    document.getElementById('rawTextArea').value = '';
+    appData.hasValidData = false;
+    document.getElementById('btnGoToTable').style.display = 'none';
+    alert('已清空输入框');
+}
+
+function openBatchImportLib() {
+    document.getElementById("popBatchImportLib").classList.remove("hide");
+    document.getElementById("batchImportLibText").value = "";
+}
+
+function closeBatchImportLib() {
+    document.getElementById("popBatchImportLib").classList.add("hide");
+}
+
+function confirmBatchImportLib() {
+    const text = document.getElementById("batchImportLibText").value;
+    const lines = text.split("\n").map(s => s.trim()).filter(s => s.length > 0);
+    if (lines.length === 0) { alert("请输入至少一个品种名"); return; }
+    let count = 0;
+    for (const line of lines) {
+        const parts = line.split(/[，,、\s]+/).map(s => s.trim()).filter(s => s.length > 0);
+        let formal = parts[0];
+        formal = normalizeVariety(formal);
+        if (!formal) continue;
+        if (!appData.variety_list.includes(formal)) {
+            appData.variety_list.push(formal);
+            count++;
+        }
+        for (let i = 1; i < parts.length; i++) {
+            let alias = parts[i];
+            alias = normalizeVariety(alias);
+            if (alias) appData.alias_map[alias] = formal;
+        }
+    }
+    saveStorage();
+    renderLibList();
+    closeBatchImportLib();
+    alert(`成功导入 ${count} 个新品种`);
+}
+
+function saveDivisor() {
+    const v = parseFloat(document.getElementById("divInput").value);
+    if (isNaN(v) || v <= 0) { alert("请输入大于0的数字"); return; }
+    appData.divisor = v;
+    saveStorage();
+    renderTable();
+    alert("除数已保存");
+}
+
+function runDiffCompare() {
+    const oldTxt = document.getElementById("diffOld").value;
+    const newTxt = document.getElementById("diffNew").value;
+    const oldL = parseAnyText(oldTxt);
+    const newL = parseAnyText(newTxt);
+    const key = r => `${r.品种}||${r.品相}||${r.规格||''}`;
+    const om = {}, nm = {};
+    oldL.forEach(r => om[key(r)] = r.原始数量);
+    newL.forEach(r => nm[key(r)] = r.原始数量);
+    const keys = new Set([...Object.keys(om), ...Object.keys(nm)]);
+    const buf = [];
+    keys.forEach(k => {
+        const o = om[k], n = nm[k];
+        if (o === undefined) buf.push(`【新增】${k} 新数量:${n}`);
+        else if (n === undefined) buf.push(`【消失】${k} 旧数量:${o}`);
+        else if (o !== n) buf.push(`【变动】${k} 旧:${o} → 新:${n} 差值:${n-o}`);
+    });
+    const resultText = buf.length ? buf.join("\n") : "两组库存没有差异";
+    document.getElementById("diffResult").innerText = resultText;
+    const stats = document.createElement('div');
+    stats.className = 'diff-summary';
+    const total = buf.length;
+    const add = buf.filter(l => l.startsWith('【新增】')).length;
+    const del = buf.filter(l => l.startsWith('【消失】')).length;
+    const chg = buf.filter(l => l.startsWith('【变动】')).length;
+    stats.innerHTML = `<strong>差异统计：</strong> 总计 ${total} 项 &nbsp;|&nbsp; 新增 ${add} &nbsp;|&nbsp; 消失 ${del} &nbsp;|&nbsp; 变动 ${chg}`;
+    const resultBox = document.getElementById('diffResult');
+    const oldStats = resultBox.parentNode.querySelector('.diff-summary');
+    if (oldStats) oldStats.remove();
+    resultBox.parentNode.insertBefore(stats, resultBox);
+    appData.diffOldText = oldTxt;
+    appData.diffNewText = newTxt;
+    appData.diffResultText = resultText;
+    saveStorage();
+}
+
+function openDiffEdit() {
+    document.getElementById("diffEditText").value = document.getElementById("diffResult").innerText;
+    document.getElementById("popDiffEdit").classList.remove("hide");
+}
+
+function saveDiffEdit() {
+    const newText = document.getElementById("diffEditText").value;
+    document.getElementById("diffResult").innerText = newText;
+    appData.diffResultText = newText;
+    saveStorage();
+    document.getElementById("popDiffEdit").classList.add("hide");
+    alert("修改已保存");
+}
+
+function cancelDiffEdit() {
+    document.getElementById("popDiffEdit").classList.add("hide");
+}
+
+function updateTableFromDiff() {
+    const resultText = document.getElementById("diffResult").innerText;
+    if (!resultText || resultText === "两组库存没有差异") { alert("没有可更新的差异数据"); return; }
+    if (!confirm("将根据差异结果更新表格。\n- 变动的行将被覆盖\n- 新增的品种会询问是否添加\n- 消失的品种所在行会标红\n是否继续？")) return;
+    const lines = resultText.split("\n").filter(s => s.trim().length > 0);
+    const updateMap = new Map();
+    const addList = [];
+    const removedList = [];
+    for (const line of lines) {
+        if (line.startsWith("【消失】")) {
+            let qtyMatch = line.match(/旧数量:(\d+)/);
+            if (!qtyMatch) continue;
+            let beforeQty = line.split(/旧数量:/)[0];
+            beforeQty = beforeQty.replace(/【消失】\s*/, '');
+            let parts = beforeQty.split(/\s*[\|]{1,2}\s*/);
+            if (parts.length >= 2) {
+                let variety = parts[0].trim();
+                let phase = parts[1].trim();
+                let spec = parts.length >= 3 ? parts[2].trim() : '';
+                if (variety && phase) {
+                    variety = normalizeVariety(variety);
+                    const formalVariety = matchVariety(variety);
+                    const finalVariety = formalVariety || variety;
+                    removedList.push({ variety: finalVariety, phase, spec });
+                }
+            }
+            continue;
+        }
+        if (line.startsWith("【新增】")) {
+            let qtyMatch = line.match(/新数量:(\d+)/);
+            if (!qtyMatch) continue;
+            const newQty = Number(qtyMatch[1]);
+            let beforeQty = line.split(/新数量:/)[0];
+            beforeQty = beforeQty.replace(/【新增】\s*/, '');
+            let parts = beforeQty.split(/\s*[\|]{1,2}\s*/);
+            if (parts.length >= 2) {
+                let variety = parts[0].trim();
+                let phase = parts[1].trim();
+                let spec = parts.length >= 3 ? parts[2].trim() : '';
+                if (variety && phase) {
+                    variety = normalizeVariety(variety);
+                    const formalVariety = matchVariety(variety);
+                    const finalVariety = formalVariety || variety;
+                    const existRow = findRowByVarietyPhaseIgnoreSpec(finalVariety, phase);
+                    if (existRow) {
+                        existRow.原始数量 = newQty;
+                        existRow._updatedHighlight = true;
+                        existRow._diffUpdated = true;
+                        existRow.规格 = spec;
+                        existRow._removed = false;
+                        const key = `${finalVariety}||${phase}`;
+                        updateMap.set(key, { variety: finalVariety, phase, newQty, spec });
+                    } else {
+                        addList.push({ variety: finalVariety, phase, newQty, spec });
+                    }
+                }
+            }
+            continue;
+        }
+        if (line.startsWith("【变动】")) {
+            let qtyMatch = line.match(/新:(\d+)/);
+            if (!qtyMatch) continue;
+            const newQty = Number(qtyMatch[1]);
+            let beforeOld = line.split(/旧:/)[0];
+            beforeOld = beforeOld.replace(/【变动】\s*/, '');
+            let parts = beforeOld.split(/\s*[\|]{1,2}\s*/);
+            if (parts.length >= 2) {
+                let variety = parts[0].trim();
+                let phase = parts[1].trim();
+                let spec = parts.length >= 3 ? parts[2].trim() : '';
+                if (variety && phase) {
+                    variety = normalizeVariety(variety);
+                    const formalVariety = matchVariety(variety);
+                    const finalVariety = formalVariety || variety;
+                    const existRow = findRowByVarietyPhaseIgnoreSpec(finalVariety, phase);
+                    if (existRow) {
+                        existRow.原始数量 = newQty;
+                        existRow._updatedHighlight = true;
+                        existRow._diffUpdated = true;
+                        existRow.规格 = spec;
+                        existRow._removed = false;
+                        const key = `${finalVariety}||${phase}`;
+                        updateMap.set(key, { variety: finalVariety, phase, newQty, spec });
+                    } else {
+                        addList.push({ variety: finalVariety, phase, newQty, spec });
+                    }
+                }
+            }
+        }
+    }
+    const removedKeys = [];
+    for (const item of removedList) {
+        const row = findRowByVarietyPhaseIgnoreSpec(item.variety, item.phase);
+        if (row) {
+            row._removed = true;
+            removedKeys.push(`${item.variety}||${item.phase}`);
+        }
+    }
+    if (updateMap.size === 0 && addList.length === 0 && removedKeys.length === 0) {
+        alert("解析差异结果失败或没有可执行的变更。"); return;
+    }
+    let confirmAdd = true;
+    if (addList.length > 0) {
+        const msg = "检测到以下新品种（旧库存中不存在），是否新增？\n" +
+            addList.map(item => `${item.variety}||${item.phase}||${item.spec} 数量:${item.newQty}`).join("\n");
+        if (!confirm(msg)) confirmAdd = false;
+    }
+    if (confirmAdd && addList.length > 0) {
+        for (const item of addList) {
+            const exist = findRowByVarietyPhaseIgnoreSpec(item.variety, item.phase);
+            if (exist) {
+                exist.原始数量 = item.newQty;
+                exist.规格 = item.spec || '';
+                exist._removed = false;
+                exist._updatedHighlight = true;
+                exist._diffUpdated = true;
+            } else {
+                const newRow = {
+                    品种: item.variety, 品相: item.phase, 原始数量: item.newQty,
+                    备注: "", 下架: false, _isCombine: (item.phase === "组合"),
+                    _isSystemCombine: (item.phase === "组合"), 规格: item.spec || '', _removed: false,
+                    _updatedHighlight: true, _diffUpdated: true
+                };
+                appData.pure_rows.push(newRow);
+            }
+        }
+    }
+    let hasShaoUpdate = false;
+    for (const key of updateMap.keys()) {
+        const parts = key.split('||');
+        if (parts.length >= 2 && parts[1] === "少量花") { hasShaoUpdate = true; break; }
+    }
+    if (hasShaoUpdate) recalculateCombines(null);
+    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    appData.diffOldText = document.getElementById("diffOld").value;
+    appData.diffNewText = document.getElementById("diffNew").value;
+    appData.diffResultText = document.getElementById("diffResult").innerText;
+    appData._lastTableUpdateTime = new Date().toLocaleString('zh-CN', {hour12: false}) + '（差异对比）';
+    saveStorage();
+    renderTable();
+    let msg = `✅ 表格已更新。`;
+    if (updateMap.size > 0) msg += `\n- 更新 ${updateMap.size} 行（已标记粉色+黄色）`;
+    if (addList.length > 0) msg += `\n- 新增 ${addList.length} 行（已标记粉色+黄色）`;
+    if (removedKeys.length > 0) msg += `\n- 标记消失 ${removedKeys.length} 行（已标记正红色加删除线）`;
+    alert(msg);
+}
+
+function clearRemoved() {
+    if (!confirm("确定清除所有红色消失标记吗？")) return;
+    appData.pure_rows.forEach(r => { r._removed = false; });
+    saveStorage();
+    renderTable();
+    alert("已清除红色标记");
+}
+
+function clearHighlight() {
+    appData.highlightedRows = new Set();
+    appData.pure_rows.forEach(r => {
+        delete r._updatedHighlight;
+        delete r._diffUpdated;
+    });
+    document.querySelectorAll('.cell-var-click').forEach(el => el.classList.remove('cell-var-click'));
+    renderTable();
+}
+
+function filterLibList() {
+    const keyword = document.getElementById("libSearch").value.trim().toLowerCase();
+    const items = document.querySelectorAll("#libList .list-item");
+    let found = false;
+    if (!keyword) { items.forEach(item => item.style.display = ''); return; }
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        const match = text.includes(keyword);
+        item.style.display = match ? '' : 'none';
+        if (match) found = true;
+    });
+    if (!found) {
+        if (confirm(`未搜索到“${keyword}”，是否新建该品种？`)) {
+            document.getElementById("newVarName").value = keyword;
+            document.getElementById("newVarName").focus();
+        }
+    }
+}
+
+async function forcePullFromCloud() {
+    if (!confirm("确定要从云端拉取最新数据吗？\n这会覆盖当前设备上的旧数据（不会影响其他设备已同步的数据）。")) return;
+    showToast('正在拉取云端数据...');
+    try {
+        const { data, error } = await cloudDB.from('devices').select('data, last_sync').order('last_sync', { ascending: false }).limit(1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+            const cloudData = data[0].data;
+            const cloudTime = new Date(data[0].last_sync).getTime();
+            applyLoadedData(cloudData);
+            appData._lastSyncTime = cloudTime;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+            renderTable();
+            showToast('✅ 已成功拉取云端最新数据');
+        } else {
+            alert("云端目前没有找到任何备份数据");
+        }
+    } catch(e) {
+        console.error('拉取失败', e);
+        alert("拉取云端数据失败，请检查网络: " + e.message);
+    }
+}
+
+// ============================================================
+// ★ 问题4：读取云端近5次历史记录
+// ============================================================
+async function loadCloudHistory() {
+    showToast('正在读取历史记录...');
+    try {
+        const { data, error } = await cloudDB.from('sync_history')
+            .select('id, device_name, last_sync, data')
+            .order('last_sync', { ascending: false })
+            .limit(5);
+        if (error) throw error;
+        if (!data || data.length === 0) { alert("云端目前没有历史备份记录"); return; }
+
+        let msg = "请选择要恢复的历史版本：\n\n";
+        data.forEach((item, index) => {
+            const t = new Date(item.last_sync).toLocaleString();
+            msg += `${index + 1}. 时间：${t}  设备：${item.device_name}\n`;
+        });
+        const choice = prompt(msg + "\n请输入序号 (1-" + data.length + "):", "1");
+        if (choice === null) return;
+        const idx = parseInt(choice, 10) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= data.length) { alert("输入无效"); return; }
+
+        const selected = data[idx];
+        if (!confirm(`确定恢复 ${new Date(selected.last_sync).toLocaleString()} 的备份吗？\n当前设备数据将被覆盖。`)) return;
+
+        applyLoadedData(selected.data);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(selected.data));
+        renderTable();
+        showToast('✅ 已成功恢复历史备份');
+        alert("恢复成功！");
+    } catch(e) {
+        console.error('读取历史失败', e);
+        alert("读取历史记录失败：" + e.message);
+    }
+}
+
+async function loadStorage() {
+    const localRaw = localStorage.getItem(STORAGE_KEY);
+    if (localRaw) {
+        try {
+            const d = JSON.parse(localRaw);
+            applyLoadedData(d);
+        } catch(e) { console.warn('本地数据损坏'); }
+    }
+        // 读取本地专属的隐藏列状态（不参与云端同步）
+    const hiddenRaw = localStorage.getItem(HIDDEN_KEY);
+    if (hiddenRaw) {
+        try {
+            const arr = JSON.parse(hiddenRaw);
+            appData.hidden_cols = new Set(arr);
+        } catch(e) { console.warn('隐藏列状态读取失败'); }
+    }
+    try {
+        const { data, error } = await cloudDB.from('devices').select('data, last_sync').order('last_sync', { ascending: false }).limit(1);
+        if (!error && data && data.length > 0) {
+            const cloudData = data[0].data;
+            const cloudTime = new Date(data[0].last_sync).getTime();
+            const localTime = appData._lastSyncTime || 0;
+            if (cloudTime > localTime) {
+                applyLoadedData(cloudData);
+                appData._lastSyncTime = cloudTime;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+                console.log('已从云端同步最新数据');
+                if (typeof renderTable === 'function') renderTable();
+            }
+        }
+    } catch(e) {
+        console.warn('云端同步失败，继续使用本地数据', e);
+    }
+    for (const c of appData.autoCombineCfg) {
+        if (!appData.variety_list.includes(c.name)) appData.variety_list.push(c.name);
+    }
+}
+
+function applyLoadedData(d) {
+    appData.thresholdDai = d.thresholdDai || d.stockThreshold || 30;
+    appData.thresholdShao = d.thresholdShao || d.stockThreshold || 30;
+    appData._dataSourceDate = d._dataSourceDate || "";
+    appData._lastTableUpdateTime = d._lastTableUpdateTime || "";
+    appData.variety_prices = d.variety_prices || {};
+    appData._manualCombineValues = d._manualCombineValues || {};
+    appData.button_names = d.button_names || {};
+    appData.variety_list = d.variety_list || [];
+    appData.alias_map = d.alias_map || {};
+    appData.sales_dict = d.sales_dict || {};
+    appData.divisor = Number(d.divisor || 1.8);
+    appData.customCols = d.customCols || [];
+    appData.autoCombineCfg = d.autoCombineCfg || JSON.parse(JSON.stringify(autoCombineList));
+    appData.pure_rows = d.pure_rows || [];
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    appData.deletedStack = d.deletedStack || [];
+    appData.hasValidData = d.hasValidData || false;
+    appData.highlightedRows = new Set(d.highlightedRows || []);
+    appData.remainFilterValues = d.remainFilterValues || [];
+    appData.selectedColsForExport = new Set(d.selectedColsForExport || []);
+    appData.diffOldText = d.diffOldText || '';
+    appData.diffNewText = d.diffNewText || '';
+    appData.diffResultText = d.diffResultText || '';
+    appData.deleteHistory = d.deleteHistory || [];
+}
+
+// ============================================================
+// ★ 问题4：保存时同时写入 sync_history
+// ============================================================
+function saveStorage(isManualSync = false) {
+    const payload = {
+        thresholdDai: appData.thresholdDai,
+        thresholdShao: appData.thresholdShao,
+        _dataSourceDate: appData._dataSourceDate,
+        _lastTableUpdateTime: appData._lastTableUpdateTime,
+        variety_prices: appData.variety_prices,
+        _manualCombineValues: appData._manualCombineValues,
+        button_names: appData.button_names,
+        variety_list: appData.variety_list, alias_map: appData.alias_map,
+        sales_dict: appData.sales_dict, divisor: appData.divisor,
+        customCols: appData.customCols, autoCombineCfg: appData.autoCombineCfg,
+        pure_rows: appData.pure_rows, deletedStack: appData.deletedStack,
+        hasValidData: appData.hasValidData,
+        highlightedRows: Array.from(appData.highlightedRows),
+        remainFilterValues: appData.remainFilterValues,
+        selectedColsForExport: Array.from(appData.selectedColsForExport),
+        diffOldText: appData.diffOldText, diffNewText: appData.diffNewText,
+        diffResultText: appData.diffResultText, deleteHistory: appData.deleteHistory || []
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        localStorage.setItem(HIDDEN_KEY, JSON.stringify(Array.from(appData.hidden_cols)));
+    const devName = (navigator.userAgent.includes('Android') ? '安卓手机' : navigator.userAgent.includes('iPhone') ? '苹果手机' : navigator.userAgent.includes('Windows') ? 'Windows电脑' : '未知设备');
+    cloudDB.from('devices').upsert({
+        id: DEVICE_ID, device_name: devName,
+        last_sync: new Date().toISOString(), data: payload
+    }).then(({ error }) => {
+        if (error) console.warn('云端保存失败（本地已保存）:', error.message);
+    });
+        if (isManualSync) {
+        cloudDB.from('sync_history').insert({
+            device_name: devName, data: payload
+        }).then(({ error }) => {
+            if (error) console.warn('历史记录保存失败:', error.message);
+        });
+    }
+}
+
+function goPage(pageName) {
+    try {
+        ['pageHome','pageLib','pageInputData','pageSalesPage','pageDivPage','pageSnapshotPage','pageDiffPage','pageTable'].forEach(p => document.getElementById(p).classList.add('hide'));
+        const map = { home:'pageHome', lib:'pageLib', inputData:'pageInputData', salesPage:'pageSalesPage', divPage:'pageDivPage', snapshotPage:'pageSnapshotPage', diffPage:'pageDiffPage', table:'pageTable' };
+        const target = map[pageName];
+        if (target) document.getElementById(target).classList.remove('hide');
+        if (pageName === 'lib') {
+            renderLibList();
+            if (appData.salesPendingLines && appData.salesPendingLines.length > 0) {
+                document.getElementById('libBackSales').style.display = 'inline-block';
+            } else document.getElementById('libBackSales').style.display = 'none';
+            document.getElementById('btnUndoDelete').style.display = appData.deletedStack.length ? 'inline-block' : 'none';
+            document.getElementById('libSearch').oninput = filterLibList;
+        }
+        if (pageName === 'inputData') {
+            if (appData.hasValidData && appData.pure_rows.length > 0) {
+                document.getElementById('btnGoToTable').style.display = 'inline-block';
+            } else document.getElementById('btnGoToTable').style.display = 'none';
+        }
+        if (pageName === 'divPage') document.getElementById('divInput').value = appData.divisor;
+        if (pageName === 'snapshotPage') renderSnapshotList();
+        if (pageName === 'salesPage') {
+            if (Object.keys(appData.sales_dict).length === 0) {
+                document.getElementById('salesText').value = '';
+            } else {
+                const buf = [];
+                for (const k in appData.sales_dict) {
+                    const [v,p,s] = k.split('||');
+                    buf.push(`${v}||${p}||${s||''}||${appData.sales_dict[k]}`);
+                }
+                document.getElementById('salesText').value = buf.join("\n");
+            }
+            if (appData.salesPendingLines && appData.salesPendingLines.length > 0) {
+                if (confirm('检测到未完成的销量导入，是否继续？')) {
+                    continueSalesImport();
+                } else {
+                    appData.salesPendingLines = [];
+                    document.getElementById('libBackSales').style.display = 'none';
+                }
+            }
+        }
+        if (pageName === 'diffPage') {
+            document.getElementById("diffOld").value = appData.diffOldText || "";
+            document.getElementById("diffNew").value = appData.diffNewText || "";
+            const resultBox = document.getElementById("diffResult");
+            resultBox.innerText = appData.diffResultText || "";
+            if (appData.diffResultText && appData.diffResultText !== "两组库存没有差异") {
+                const buf = appData.diffResultText.split("\n").filter(s => s.trim().length > 0);
+                const total = buf.length;
+                const add = buf.filter(l => l.startsWith('【新增】')).length;
+                const del = buf.filter(l => l.startsWith('【消失】')).length;
+                const chg = buf.filter(l => l.startsWith('【变动】')).length;
+                const oldStats = resultBox.parentNode.querySelector('.diff-summary');
+                if (oldStats) oldStats.remove();
+                const stats = document.createElement('div');
+                stats.className = 'diff-summary';
+                stats.innerHTML = `<strong>差异统计：</strong> 总计 ${total} 项 &nbsp;|&nbsp; 新增 ${add} &nbsp;|&nbsp; 消失 ${del} &nbsp;|&nbsp; 变动 ${chg}`;
+                resultBox.parentNode.insertBefore(stats, resultBox);
+            }
+        }
+        if (pageName === 'table') {
+            renderTable();
+            let noPriceItems = [];
+            appData.pure_rows.forEach(r => {
+                const vn = r.品种;
+                if (appData.variety_prices[vn] === undefined && !noPriceItems.includes(vn)) {
+                    noPriceItems.push(vn);
+                }
+            });
+            if (noPriceItems.length > 0) {
+                if (confirm(`以下品种未设置价格：\n${noPriceItems.slice(0, 10).join('、')}\n是否去品种库添加价格？`)) {
+                    goPage('lib');
+                    document.getElementById('newVarName').value = noPriceItems[0];
+                    document.getElementById('newVarPrice').focus();
+                }
+            }
+            const dateEl = document.getElementById("dataSourceInfo");
+            if (dateEl) dateEl.innerText = appData._dataSourceDate ? "📅 本次数据来源时间：" + appData._dataSourceDate : "";
+            const lastUpdateEl = document.getElementById("lastUpdateInfo");
+            if (lastUpdateEl) lastUpdateEl.innerText = appData._lastTableUpdateTime ? "⏱ 最近更新表格时间：" + appData._lastTableUpdateTime : "";
+            if (appData._showZeroStockAlertOnTable) {
+                checkZeroStockAndAlert();
+                appData._showZeroStockAlertOnTable = false;
+            }
+        }
+    } catch (e) {
+        console.error("goPage error:", e);
+        alert("页面切换时发生错误，请刷新重试");
+    }
+}
+
+function renderLibList() {
+    const wrap = document.getElementById("libList");
+    wrap.innerHTML = "";
+    appData.variety_list.forEach((v, idx) => {
+        const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === v);
+        const price = appData.variety_prices[v] !== undefined ? appData.variety_prices[v] : '未设置';
+        const div = document.createElement("div");
+        div.className = "list-item";
+        div.innerHTML = `<div>${v}${aliases.length?" |别名:"+aliases.join(","):""} |价格:${price}</div>
+        <div>
+        <button data-edit-idx="${idx}">编辑</button>
+        <button data-del-idx="${idx}" style="background:#d9534f;">删除</button>
+        </div>`;
+        wrap.appendChild(div);
+    });
+    wrap.querySelectorAll("button[data-edit-idx]").forEach(b => b.onclick = () => openEditVariety(Number(b.dataset.editIdx)));
+    wrap.querySelectorAll("button[data-del-idx]").forEach(b => b.onclick = () => deleteVariety(Number(b.dataset.delIdx)));
+    const searchVal = document.getElementById("libSearch").value.trim();
+    if (searchVal) filterLibList();
+}
+
+function openEditVariety(idx) {
+    appData.editVarietyIndex = idx;
+    const name = appData.variety_list[idx];
+    const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === name);
+    document.getElementById("editVarName").value = name;
+    document.getElementById("editVarAlias").value = aliases.join(",");
+    document.getElementById("editVarPrice").value = appData.variety_prices[name] !== undefined ? appData.variety_prices[name] : '';
+    document.getElementById("editVarPopup").classList.remove("hide");
+}
+
+function closeEditVarPopup() {
+    document.getElementById("editVarPopup").classList.add("hide");
+    appData.editVarietyIndex = null;
+}
+
+function submitEditVariety() {
+    const idx = appData.editVarietyIndex;
+    if (idx === null) return;
+    const oldName = appData.variety_list[idx];
+    let newName = document.getElementById("editVarName").value.trim();
+    newName = normalizeVariety(newName);
+    const aliasStr = document.getElementById("editVarAlias").value.trim();
+    const priceVal = document.getElementById("editVarPrice").value.trim();
+    if (!newName) { alert("品种名不能为空"); return; }
+    let price = undefined;
+    if (priceVal !== '') {
+        price = Number(priceVal);
+        if (isNaN(price) || price < 0) { alert("请输入有效的非负价格"); return; }
+    }
+    Object.keys(appData.alias_map).forEach(k => {
+        if (appData.alias_map[k] === oldName) delete appData.alias_map[k];
+    });
+    appData.variety_list[idx] = newName;
+    if (aliasStr) {
+        const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
+        aliases.forEach(a => { appData.alias_map[a] = newName; });
+    }
+    if (price !== undefined) appData.variety_prices[newName] = price;
+    else delete appData.variety_prices[newName];
+    appData.pure_rows.forEach(r => { if (r.品种 === oldName) r.品种 = newName; });
+    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    saveStorage();
+    closeEditVarPopup();
+    renderLibList();
+    renderTable();
+    alert("保存成功！");
+}
+
+function saveNewVariety() {
+    let formal = document.getElementById("newVarName").value.trim();
+    formal = normalizeVariety(formal);
+    const aliasStr = document.getElementById("newVarAlias").value.trim();
+    const priceVal = document.getElementById("newVarPrice").value.trim();
+    if (!formal) { alert("品种名不能为空"); return; }
+    if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
+    if (priceVal !== '') appData.variety_prices[formal] = Number(priceVal);
+    if (aliasStr) {
+        const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
+        aliases.forEach(a => { appData.alias_map[a] = formal; });
+    }
+    saveStorage();
+    document.getElementById("newVarName").value = "";
+    document.getElementById("newVarAlias").value = "";
+    document.getElementById("newVarPrice").value = "";
+    renderLibList();
+    alert("保存成功");
+    if (appData.salesPendingLines && appData.salesPendingLines.length > 0) {
+        if (confirm('品种已添加，是否继续导入销量？')) continueSalesImport();
+    }
+}
+
+function openUnknownVarPop(v) {
+    appData.pendingNewVar = normalizeVariety(v || "");
+    const nameSpan = document.getElementById("popNewVarName");
+    const pop = document.getElementById("popUnknownVar");
+    if (pop && nameSpan) {
+        nameSpan.innerText = appData.pendingNewVar;
+        pop.classList.remove("hide");
+    } else alert(`检测到新品种：${appData.pendingNewVar}，请前往品种库添加。`);
+}
+
+function closeUnknownVarPop() {
+    const pop = document.getElementById("popUnknownVar");
+    if (pop) pop.classList.add("hide");
+    appData.pendingNewVar = "";
+}
+
+function jumpToLibFromPop() {
+    const v = appData.pendingNewVar;
+    closeUnknownVarPop();
+    if (v) {
+        document.getElementById("newVarName").value = v;
+        goPage("lib");
+    }
+}
+
+function checkZeroStockAndAlert() {
+    let zeroStockItems = [];
+    appData.pure_rows.forEach(r => {
+        const calc = calcRow(r);
+        if (calc["剩余库存"] <= 0) {
+            const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
+            zeroStockItems.push(`${displayName} (${r.品相}) 剩余: ${calc["剩余库存"]}`);
+        }
+    });
+    if (zeroStockItems.length > 0) {
+        let msg = `⚠️ 检测到 ${zeroStockItems.length} 个品种的剩余库存小于等于 0！\n已在表格中标红，请留意补货：\n\n`;
+        msg += zeroStockItems.slice(0, 15).join("\n");
+        if (zeroStockItems.length > 15) msg += `\n... 还有 ${zeroStockItems.length - 15} 个品种，请去表格查看。`;
+        alert(msg);
+    }
+}
+
+function calcRow(row) {
+    if (!row) return {};
+    const key = `${row.品种}||${row.品相}||${row.规格||''}`;
+    const sale = Number(appData.sales_dict[key] || 0);
+    const rawNum = Number(row.原始数量) || 0;
+    const remain = rawNum - sale;
+    let douyin, wechat;
+    if (remain <= 0) { douyin = 0; wechat = 0; }
+    else if (remain < 40) { douyin = Math.floor(remain / 2); wechat = remain - douyin; }
+    else {
+        const roundUpTen = n => n <= 0 ? 0 : Math.ceil(n / 10) * 10;
+        douyin = roundUpTen(remain / appData.divisor);
+        wechat = remain - douyin;
+    }
+    return { ...row, "销量": sale, "剩余库存": remain, "抖音": douyin, "微信": wechat };
+}
+
+const baseColsName = ["序号", "卖价", "品种", "品相", "原始数量", "销量", "剩余库存", "抖音", "微信", "备注"];
+
+let remainMenuTimer = null;
+
+function showRemainMenu(e, th) {
+    const rect = th.getBoundingClientRect();
+    const menu = document.getElementById('remainMenu');
+    menu.style.left = rect.left + 'px';
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.display = 'block';
+    menu.dataset.thCol = th.getAttribute('data-col-index');
+}
+
+function hideRemainMenu() { document.getElementById('remainMenu').style.display = 'none'; }
+
+function bindRemainHeaderLongPress() {
+    const ths = document.querySelectorAll('#tableWrap th[data-col-index]');
+    for (const th of ths) {
+        const colIdx = parseInt(th.getAttribute('data-col-index'), 10);
+        if (colIdx === 6) {
+            th.removeEventListener('pointerdown', remainPointerDown);
+            th.removeEventListener('pointerup', remainPointerUp);
+            th.removeEventListener('pointerleave', remainPointerLeave);
+            th.addEventListener('pointerdown', remainPointerDown);
+            th.addEventListener('pointerup', remainPointerUp);
+            th.addEventListener('pointerleave', remainPointerLeave);
+            break;
+        }
+    }
+}
+
+let remainPointerTimer = null;
+function remainPointerDown(e) {
+    const th = e.currentTarget;
+    if (e.target.classList.contains('resize-handle')) return;
+    remainPointerTimer = setTimeout(() => { showRemainMenu(e, th); remainPointerTimer = null; }, 500);
+}
+function remainPointerUp(e) { if (remainPointerTimer) { clearTimeout(remainPointerTimer); remainPointerTimer = null; } }
+function remainPointerLeave(e) { if (remainPointerTimer) { clearTimeout(remainPointerTimer); remainPointerTimer = null; } }
+
+function showSalesSortMenu(e, th) {
+    const rect = th.getBoundingClientRect();
+    const menu = document.getElementById('salesSortMenu');
+    menu.style.left = rect.left + 'px';
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.display = 'block';
+}
+
+function hideSalesSortMenu() { document.getElementById('salesSortMenu').style.display = 'none'; }
+
+function bindSalesHeaderLongPress() {
+    const ths = document.querySelectorAll('#tableWrap th[data-col-index]');
+    for (const th of ths) {
+        const colIdx = parseInt(th.getAttribute('data-col-index'), 10);
+        if (colIdx === 5) {
+            th.removeEventListener('pointerdown', salesPointerDown);
+            th.removeEventListener('pointerup', salesPointerUp);
+            th.removeEventListener('pointerleave', salesPointerLeave);
+            th.addEventListener('pointerdown', salesPointerDown);
+            th.addEventListener('pointerup', salesPointerUp);
+            th.addEventListener('pointerleave', salesPointerLeave);
+            break;
+        }
+    }
+}
+
+let salesPointerTimer = null;
+function salesPointerDown(e) {
+    const th = e.currentTarget;
+    if (e.target.classList.contains('resize-handle')) return;
+    salesPointerTimer = setTimeout(() => { showSalesSortMenu(e, th); salesPointerTimer = null; }, 500);
+}
+function salesPointerUp(e) { if (salesPointerTimer) { clearTimeout(salesPointerTimer); salesPointerTimer = null; } }
+function salesPointerLeave(e) { if (salesPointerTimer) { clearTimeout(salesPointerTimer); salesPointerTimer = null; } }
+
+function sortBySalesDesc() {
+    hideSalesSortMenu();
+    if (!appData._salesSortBackup) appData._salesSortBackup = JSON.parse(JSON.stringify(appData.pure_rows));
+    appData.pure_rows.sort((a, b) => {
+        const keyA = `${a.品种}||${a.品相}||${a.规格||''}`;
+        const keyB = `${b.品种}||${b.品相}||${b.规格||''}`;
+        const saleA = Number(appData.sales_dict[keyA] || 0);
+        const saleB = Number(appData.sales_dict[keyB] || 0);
+        return saleB - saleA;
+    });
+    selectedRows.clear();
+    renderTable();
+    showToast('✅ 已按销量降序排列');
+}
+
+function clearSalesSort() {
+    hideSalesSortMenu();
+    if (appData._salesSortBackup) {
+        appData.pure_rows = JSON.parse(JSON.stringify(appData._salesSortBackup));
+        appData._salesSortBackup = null;
+        selectedRows.clear();
+        renderTable();
+        showToast('✅ 已恢复原顺序');
+    } else alert('没有可恢复的排序');
+}
+
+document.addEventListener('click', function(e) {
+    const menu = document.getElementById('remainMenu');
+    if (menu.style.display === 'block' && !menu.contains(e.target) && !e.target.closest('th')) hideRemainMenu();
+    const smenu = document.getElementById('salesSortMenu');
+    if (smenu.style.display === 'block' && !smenu.contains(e.target) && !e.target.closest('th')) hideSalesSortMenu();
+});
+
+document.getElementById('remainMenuFilter').addEventListener('click', function() {
+    hideRemainMenu(); openRemainFilter();
+});
+document.getElementById('remainMenuClear').addEventListener('click', function() {
+    hideRemainMenu();
+    appData.remainFilterValues = [];
+    saveStorage();
+    renderTable();
+    alert('已取消筛选');
+});
+document.getElementById('salesSortDesc').addEventListener('click', sortBySalesDesc);
+document.getElementById('salesSortClear').addEventListener('click', clearSalesSort);
+
+function openRemainFilter() {
+    const full = assembleFullData();
+    const normalRows = full.filter(r => r.品相 !== "组合");
+    const remainSet = new Set();
+    normalRows.forEach(r => {
+        const remain = calcRow(r)["剩余库存"];
+        if (remain !== undefined && remain !== null) remainSet.add(remain);
+    });
+    const values = Array.from(remainSet).sort((a,b) => a - b);
+    if (values.length === 0) { alert('当前没有可筛选的剩余库存数据'); return; }
+    const listDiv = document.getElementById('remainFilterList');
+    listDiv.innerHTML = '';
+    const selected = new Set(appData.remainFilterValues);
+    values.forEach(val => {
+        const label = document.createElement('label');
+        label.style.display = 'block';
+        label.style.padding = '4px 0';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.value = val;
+        if (selected.has(val)) cb.checked = true;
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(' ' + val));
+        listDiv.appendChild(label);
+    });
+    document.getElementById('popRemainFilter').classList.remove('hide');
+}
+
+function closeRemainFilter() { document.getElementById('popRemainFilter').classList.add('hide'); }
+
+document.getElementById('btnRemainFilterOk').addEventListener('click', function() {
+    const checkboxes = document.querySelectorAll('#remainFilterList input[type="checkbox"]');
+    const selectedValues = [];
+    checkboxes.forEach(cb => { if (cb.checked) selectedValues.push(Number(cb.value)); });
+    appData.remainFilterValues = selectedValues;
+    saveStorage();
+    renderTable();
+    closeRemainFilter();
+    if (selectedValues.length > 0) alert(`已隐藏剩余库存为 ${selectedValues.join(', ')} 的行`);
+    else alert('未选择任何值，取消筛选');
+});
+
+document.getElementById('btnRemainFilterCancel').addEventListener('click', function() { closeRemainFilter(); });
+
+function exportSelectedColsToImage() {
+    const selected = appData.selectedColsForExport;
+    if (!selected || selected.size === 0) { alert('请先在表头勾选需要导出的列（点击列标题旁的复选框）'); return; }
+    const tableWrap = document.getElementById('tableWrap');
+    const originalTable = tableWrap.querySelector('table');
+    if (!originalTable) { alert('表格未加载'); return; }
+    const allTh = originalTable.querySelectorAll('thead tr th');
+    const dataColIndices = [];
+    for (let i = 1; i < allTh.length - 1; i++) {
+        const th = allTh[i];
+        if (th.hasAttribute('data-col-index')) dataColIndices.push(i);
+    }
+    const keepIndices = dataColIndices.filter(idx => selected.has(parseInt(allTh[idx].getAttribute('data-col-index'), 10)));
+    if (keepIndices.length === 0) { alert('未选中任何有效列'); return; }
+    const cloneTable = originalTable.cloneNode(true);
+    cloneTable.querySelectorAll('td input').forEach(inp => { inp.parentNode.textContent = inp.value; });
+    cloneTable.querySelectorAll('input').forEach(inp => inp.remove());
+    cloneTable.querySelectorAll('.resize-handle, .row-resize-handle').forEach(el => el.remove());
+    try {
+        const origRowsAll = originalTable.querySelectorAll('tr');
+        const cloneRowsAll = cloneTable.querySelectorAll('tr');
+        for (let ri = 0; ri < cloneRowsAll.length; ri++) {
+            const oTr = origRowsAll[ri];
+            if (!oTr) continue;
+            const oCells = oTr.children;
+            const cCells = cloneRowsAll[ri].children;
+            for (let ci = 0; ci < cCells.length && ci < oCells.length; ci++) {
+                const cs = window.getComputedStyle(oCells[ci]);
+                if (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent') {
+                    cCells[ci].style.backgroundColor = cs.backgroundColor;
+                }
+                if (cs.color) cCells[ci].style.color = cs.color;
+            }
+        }
+    } catch (e) { console.warn('复制底色失败', e); }
+    const cloneThs = cloneTable.querySelectorAll('thead tr th');
+    const cloneRows = cloneTable.querySelector('tbody') ? cloneTable.querySelector('tbody').querySelectorAll('tr') : [];
+    if (cloneThs.length > 0) cloneThs[cloneThs.length - 1].parentNode.removeChild(cloneThs[cloneThs.length - 1]);
+    if (cloneThs.length > 0) cloneThs[0].parentNode.removeChild(cloneThs[0]);
+    const remainingThs = cloneTable.querySelectorAll('thead tr th');
+    const keepInClone = keepIndices.map(origIdx => origIdx - 1);
+    for (let i = remainingThs.length - 1; i >= 0; i--) {
+        if (!keepInClone.includes(i)) remainingThs[i].parentNode.removeChild(remainingThs[i]);
+    }
+    cloneRows.forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        if (tds.length > 0) tds[tds.length - 1].parentNode.removeChild(tds[tds.length - 1]);
+        if (tds.length > 0) tds[0].parentNode.removeChild(tds[0]);
+        const remainingTds = tr.querySelectorAll('td');
+        for (let i = remainingTds.length - 1; i >= 0; i--) {
+            if (!keepInClone.includes(i)) remainingTds[i].parentNode.removeChild(remainingTds[i]);
+        }
+    });
+    cloneTable.style.borderCollapse = 'collapse';
+    cloneTable.style.width = 'auto';
+    cloneTable.style.fontSize = '14px';
+    cloneTable.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+            cloneTable.querySelectorAll('th, td').forEach(cell => {
+            cell.style.border = '1px solid #ddd';
+            cell.style.padding = '2px 4px'; // 紧凑的内边距，只比文字大一点点
+            cell.style.textAlign = 'center';
+            cell.style.whiteSpace = 'nowrap';
+            cell.style.minWidth = 'auto';   // 防止表头被撑开
+            if (!cell.style.backgroundColor) cell.style.backgroundColor = cell.tagName === 'TH' ? '#e9edff' : '#ffffff';
+        });
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.background = '#ffffff';
+    container.style.padding = '12px';
+    container.appendChild(cloneTable);
+    document.body.appendChild(container);
+    html2canvas(container, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'selected_columns.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        document.body.removeChild(container);
+    }).catch(err => {
+        console.error('截图失败:', err);
+        alert('导出图片失败，请重试。');
+        document.body.removeChild(container);
+    });
+}
+
+// ============================================================
+// ★ 问题1：renderTable 使用独立阈值
+// ============================================================
+function renderTable() {
+    try {
+        const searchWord = document.getElementById("searchInput").value.trim().toLowerCase();
+        let fullList = assembleFullData().filter(r => r);
+        const dataCols = [...baseColsName, ...appData.customCols];
+        if (appData.remainFilterValues && appData.remainFilterValues.length > 0) {
+            const filterSet = new Set(appData.remainFilterValues);
+            fullList = fullList.filter(r => {
+                if (r.品相 === "组合") return true;
+                const remain = calcRow(r)["剩余库存"];
+                return !filterSet.has(remain);
+            });
+        }
+        let rows = fullList.map((r, idx) => {
+            const calc = calcRow(r);
+            const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
+            const salePrice = getSalePrice(r);
+            const out = { 序号: idx + 1, 卖价: salePrice !== null ? salePrice : '', 品种: displayName, 品相: r.品相, 原始数量: calc["原始数量"], 销量: calc["销量"], 剩余库存: calc["剩余库存"], 抖音: calc["抖音"], 微信: calc["微信"], 备注: r.备注 || '' };
+            appData.customCols.forEach(c => { if (out[c] === undefined) out[c] = ""; });
+            out._raw = r; out._hasPrice = salePrice !== null;
+            return out;
+        });
+        if (searchWord) rows = rows.filter(tr => String(tr.品种).toLowerCase().includes(searchWord) || String(tr.品相).toLowerCase().includes(searchWord));
+
+        const stat = document.getElementById("statPanel");
+                // 筛选提示按钮
+        const filterNotice = document.getElementById('btnFilterNotice');
+        if (filterNotice) {
+            if (appData.remainFilterValues && appData.remainFilterValues.length > 0) {
+                filterNotice.style.display = 'inline-block';
+                filterNotice.onclick = () => {
+                    appData.remainFilterValues = [];
+                    saveStorage();
+                    renderTable();
+                    showToast('已取消筛选');
+                };
+            } else {
+                filterNotice.style.display = 'none';
+            }
+        }
+        const totalRows = rows.length;
+        const tDai = appData.thresholdDai || 30;
+        const tShao = appData.thresholdShao || 30;
+        const daiCount = rows.filter(x => x.品相 === "带花" && !x._raw._isCombine && (Number(x.剩余库存)||0) >= tDai).length;
+        const shaoCount = rows.filter(x => x.品相 === "少量花" && !x._raw._isCombine && (Number(x.剩余库存)||0) >= tShao).length;
+        stat.innerHTML = `<div class="stat-item">总行数:${totalRows}</div><div class="stat-item" id="statDai" style="cursor:pointer;">带花品≥${tDai}:${daiCount}</div><div class="stat-item" id="statShao" style="cursor:pointer;">少量花品≥${tShao}:${shaoCount}</div>`;
+
+        const keySet = new Set(), warnSet = new Set();
+        rows.forEach(r => {
+            if (r._raw._isCombine) return;
+            const k = `${r.品种}||${r.品相}`;
+            if (keySet.has(k)) warnSet.add(k);
+            keySet.add(k);
+        });
+        let html = `<table><thead><tr>`;
+        html += `<th style="min-width:40px;width:40px;"><input type="checkbox" id="selectAllRows" class="select-all-check"></th>`;
+        dataCols.forEach((c, i) => {
+            const hide = appData.hidden_cols.has(i) ? "style='display:none'" : "";
+            const checked = appData.selectedColsForExport.has(i) ? 'checked' : '';
+            html += `<th ${hide} data-col-index="${i}" style="min-width:80px;cursor:pointer;position:relative;">
+            <span>${c}</span>
+            <input type="checkbox" class="col-select-check" data-col-index="${i}" ${checked} title="勾选此列用于导出图片">
+            <div class="resize-handle"></div>
+            </th>`;
+        });
+        html += `<th style="min-width:160px;">操作</th></tr></thead><tbody>`;
+
+        let zebraCounter = 0;
+        rows.forEach((row, ri) => {
+            const rawRow = row._raw;
+            const cls = [];
+            if (rawRow._isCombine) cls.push('system-combine');
+            else { cls.push(zebraCounter % 2 === 0 ? 'zebra-even' : 'zebra-odd'); zebraCounter++; }
+            if (rawRow.下架) cls.push('off-shelf');
+            if (rawRow._removed) cls.push('removed-row');
+            const k = `${rawRow.品种}||${rawRow.品相}`;
+            if (!rawRow._isCombine && !rawRow._removed) {
+                if ((Number(rawRow.原始数量)||0) < 0) cls.push('warn-row');
+                if (warnSet.has(k)) cls.push('warn-row');
+            }
+            const pureIdx = findPureIndex(rawRow);
+            if (pureIdx !== -1 && selectedRows.has(pureIdx)) cls.push('selected-row');
+            if (rawRow._updatedHighlight) cls.push('updated-row');
+            const rowHeight = appData.pure_rows[pureIdx]?._rowHeight || 18;
+            html += `<tr ${cls.length?`class="${cls.join(' ')}"`:''} style="height:${rowHeight}px;">`;
+            const checked = (pureIdx !== -1 && selectedRows.has(pureIdx)) ? 'checked' : '';
+            html += `<td style="width:40px;min-width:40px;"><input type="checkbox" class="row-checkbox" data-pureidx="${pureIdx}" ${checked}></td>`;
+            dataCols.forEach((c, ci) => {
+                const hide = appData.hidden_cols.has(ci) ? "style='display:none'" : "";
+                let val = row[c] ?? "";
+                const isNumber = ["原始数量","销量","剩余库存","抖音","微信","卖价"].includes(c);
+                const isSeq = c === "序号";
+                const actualDisabled = isSeq;
+                const type = isNumber ? "number" : "text";
+                if (isSeq) val = row.序号;
+                if (c === "卖价" && val === null) val = "";
+                let cellCls = (selectedCol === ci) ? 'col-selected' : '';
+                if (c === "原始数量" && rawRow._diffUpdated) cellCls += " cell-yellow";
+                if (c === "剩余库存" && (Number(val) || 0) <= 0) cellCls += " cell-red";
+                let tdExtraAttr = '', inputExtraAttr = '';
+                if (c === "品种") { tdExtraAttr = ' data-is-variety="true" '; inputExtraAttr = ' readonly '; }
+                html += `<td ${hide} ${tdExtraAttr} class="${cellCls}" data-rowindex="${ri}" data-colindex="${ci}" style="position:relative;">
+                <input data-row="${ri}" data-col="${ci}" type="${type}" value="${val}" ${actualDisabled?'disabled':''} ${inputExtraAttr}>
+                ${ci === 0 ? '<div class="row-resize-handle"></div>' : ''}
+                </td>`;
+            });
+            html += `<td><button class="move-btn" data-up="${ri}">▲</button><button class="move-btn" data-down="${ri}">▼</button></td>`;
+            html += `</tr>`;
+        });
+        html += `</tbody></table>`;
+        document.getElementById("tableWrap").innerHTML = html;
+        document.querySelectorAll('.col-select-check').forEach(cb => {
+            cb.addEventListener('change', function() {
+                const colIdx = parseInt(this.dataset.colIndex, 10);
+                if (this.checked) appData.selectedColsForExport.add(colIdx);
+                else appData.selectedColsForExport.delete(colIdx);
+                saveStorage();
+            });
+        });
+        bindTableEvents();
+        bindResizeHandles();
+        bindRemainHeaderLongPress();
+        bindSalesHeaderLongPress();
+    } catch (e) {
+        console.error("renderTable error:", e);
+        alert("表格渲染失败，请检查数据或刷新页面");
+    }
+}
+
+function bindTableEvents() {
+    document.querySelectorAll('#tableWrap td[data-is-variety="true"]').forEach(td => {
+        const inp = td.querySelector('input');
+        if (!inp) return;
+        td.addEventListener('click', (e) => {
+            if (inp.hasAttribute('readonly')) {
+                // 清除原来整行的红标
+                document.querySelectorAll('tr.row-var-click').forEach(el => el.classList.remove('row-var-click'));
+                // 给当前行加上红标
+                const tr = td.closest('tr');
+                if (tr) tr.classList.add('row-var-click');
+            }
+        });
+        td.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            inp.removeAttribute('readonly');
+            inp.focus();
+        });
+        inp.addEventListener('blur', () => { inp.setAttribute('readonly', 'true'); });
+    });
+    document.querySelectorAll("[data-up]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.up), 'up'));
+    document.querySelectorAll("[data-down]").forEach(b => b.onclick = () => moveRow(Number(b.dataset.down), 'down'));
+    document.querySelectorAll("#tableWrap input[data-row]").forEach(inp => {
+        inp.onchange = function() { cellEdit(Number(this.dataset.row), Number(this.dataset.col), this.value); };
+    });
+    document.querySelectorAll(".row-checkbox").forEach(cb => {
+        cb.onchange = function() {
+            const pureIdx = Number(this.dataset.pureidx);
+            if (pureIdx !== -1) {
+                if (this.checked) selectedRows.add(pureIdx);
+                else selectedRows.delete(pureIdx);
+                const tr = this.closest('tr');
+                if (tr) tr.classList.toggle('selected-row', this.checked);
+            }
+        };
+    });
+    const selectAll = document.getElementById("selectAllRows");
+    if (selectAll) {
+        selectAll.onchange = function() {
+            const checked = this.checked;
+            document.querySelectorAll(".row-checkbox").forEach(cb => {
+                cb.checked = checked;
+                const pureIdx = Number(cb.dataset.pureidx);
+                if (pureIdx !== -1) {
+                    if (checked) selectedRows.add(pureIdx);
+                    else selectedRows.delete(pureIdx);
+                }
+                const tr = cb.closest('tr');
+                if (tr) tr.classList.toggle('selected-row', checked);
+            });
+        };
+    }
+    document.querySelectorAll("th[data-col-index]").forEach(th => {
+        th.onclick = function(e) {
+            if (e.target.classList.contains('resize-handle') || e.target.tagName === 'INPUT') return;
+            const colIdx = Number(this.dataset.colIndex);
+            document.querySelectorAll('td.col-selected').forEach(td => td.classList.remove('col-selected'));
+            if (selectedCol === colIdx) selectedCol = null;
+            else {
+                selectedCol = colIdx;
+                document.querySelectorAll(`#tableWrap td[data-colindex="${colIdx}"]`).forEach(td => td.classList.add('col-selected'));
+            }
+        };
+    });
+}
+
+function bindResizeHandles() {
+    document.querySelectorAll(".resize-handle").forEach(h => {
+        h.onpointerdown = function(e) {
+            e.preventDefault();
+            const th = this.parentElement;
+            dragState.isDrag = true; dragState.thEl = th;
+            dragState.startX = e.clientX; dragState.startW = th.offsetWidth;
+            dragState.pointerId = e.pointerId;
+            this.setPointerCapture(e.pointerId);
+        };
+        h.onpointermove = function(e) {
+            if (!dragState.isDrag || dragState.thEl !== this.parentElement) return;
+            e.preventDefault();
+            const w = Math.max(40, dragState.startW + (e.clientX - dragState.startX));
+            dragState.thEl.style.width = w + "px";
+        };
+        h.onpointerup = function(e) {
+            if (dragState.isDrag && dragState.thEl === this.parentElement) {
+                dragState.isDrag = false; dragState.thEl = null;
+                this.releasePointerCapture(e.pointerId);
+            }
+        };
+        h.onpointercancel = function(e) {
+            dragState.isDrag = false; dragState.thEl = null;
+            this.releasePointerCapture(e.pointerId);
+        };
+    });
+    document.querySelectorAll(".row-resize-handle").forEach(h => {
+        h.onpointerdown = function(e) {
+            e.preventDefault();
+            const td = this.closest('td');
+            const tr = td ? td.closest('tr') : null;
+            if (!tr) return;
+            const cb = tr.querySelector('.row-checkbox');
+            let pureIdx = -1;
+            if (cb) pureIdx = Number(cb.dataset.pureidx);
+            rowDragState.isDrag = true; rowDragState.trEl = tr;
+            rowDragState.startY = e.clientY; rowDragState.startH = tr.offsetHeight;
+            rowDragState.pureIdx = pureIdx; rowDragState.pointerId = e.pointerId;
+            this.setPointerCapture(e.pointerId);
+        };
+        h.onpointermove = function(e) {
+            if (!rowDragState.isDrag || rowDragState.trEl === null) return;
+            e.preventDefault();
+            const h = Math.max(18, rowDragState.startH + (e.clientY - rowDragState.startY));
+            rowDragState.trEl.style.height = h + "px";
+            if (rowDragState.pureIdx !== -1 && rowDragState.pureIdx < appData.pure_rows.length) {
+                appData.pure_rows[rowDragState.pureIdx]._rowHeight = h;
+                saveStorage();
+            }
+        };
+        h.onpointerup = function(e) {
+            if (rowDragState.isDrag) {
+                rowDragState.isDrag = false; rowDragState.trEl = null;
+                this.releasePointerCapture(e.pointerId);
+            }
+        };
+        h.onpointercancel = function(e) {
+            rowDragState.isDrag = false; rowDragState.trEl = null;
+            this.releasePointerCapture(e.pointerId);
+        };
+    });
+}
+
+function cellEdit(ri, ci, val) {
+    const full = assembleFullData();
+    if (ri >= full.length) { renderTable(); return; }
+    const t = full[ri];
+    const idx = findPureIndex(t);
+    if (idx === -1) { alert("数据异常，请刷新"); renderTable(); return; }
+    const r = appData.pure_rows[idx];
+    const dataCols = [...baseColsName, ...appData.customCols];
+    const key = dataCols[ci];
+    if (!key || key === "序号") { renderTable(); return; }
+    if (key === "卖价") {
+        const newVal = Number(val) || 0;
+        appData.variety_prices[r.品种] = newVal;
+        saveStorage(); renderTable(); return;
+    } else if (key === "原始数量") {
+        const newVal = Number(val) || 0;
+        r.原始数量 = newVal;
+        r._diffUpdated = true;
+        if (r.品相 === "组合" && r._isCombine) {
+            if (!appData._manualCombineValues) appData._manualCombineValues = {};
+            appData._manualCombineValues[r.品种] = newVal;
+            recalculateCombines(idx);
+            const finalRow = appData.pure_rows.find(x => x.品种 === r.品种 && x.品相 === "组合" && x._isCombine);
+            if (finalRow) {
+                r.原始数量 = finalRow.原始数量;
+                appData._manualCombineValues[r.品种] = finalRow.原始数量;
+            }
+        } else if (r.品相 === "少量花" && !r._isCombine) {
+            recalculateCombines(null);
+        }
+        appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+        appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+        saveStorage(); renderTable(); return;
+    } else if (key === "销量") {
+        const newVal = Number(val) || 0;
+        const salesKey = `${r.品种}||${r.品相}||${r.规格||''}`;
+        if (newVal === 0) delete appData.sales_dict[salesKey];
+        else appData.sales_dict[salesKey] = newVal;
+        saveStorage(); renderTable(); return;
+    } else if (key === "品种") {
+        let newName = val.trim();
+        newName = normalizeVariety(newName);
+        const m = newName.match(/^(.*?)(粗|细)$/);
+        if (m) { r.品种 = m[1]; r.规格 = m[2]; }
+        else { r.品种 = newName; r.规格 = ''; }
+        const matched = matchVariety(r.品种);
+        if (matched === null && r.品种.trim() !== "") openUnknownVarPop(r.品种);
+    } else if (key === "品相") {
+        r.品相 = val;
+        if (val === "组合" && !r._isCombine) { r._isCombine = true; r._isSystemCombine = true; recalculateCombines(idx); }
+    } else if (key === "备注") r.备注 = val;
+    else r[key] = val;
+    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
+    selectedRows.clear();
+    saveStorage(); renderTable();
+}
+
+function hideSelectedCol() {
+    if (appData.selectedColsForExport.size === 0) { alert("请先在表头勾选需要隐藏的列（复选框）"); return; }
+    lastHiddenCols = Array.from(appData.selectedColsForExport);
+    lastHiddenCols.forEach(col => appData.hidden_cols.add(col));
+    appData.selectedColsForExport.clear();
+    saveStorage(); renderTable();
+    showToast('✅ 已隐藏选中列');
+}
+
+function unhideLastCol() {
+    // 不管之前隐藏了哪些列，直接全部显示
+    appData.hidden_cols.clear(); // 清空隐藏记录
+    lastHiddenCols = []; 
+    saveStorage(); 
+    renderTable();
+    showToast('✅ 已显示所有列');
+}
+
+function bindGlobalButtons() {
+    // 问题1：点击"带花品"或"少量花品"分别修改各自的阈值
+    const statPanelEl = document.getElementById("statPanel");
+    if (statPanelEl) {
+        statPanelEl.addEventListener('click', (e) => {
+            const statDaiEl = document.getElementById("statDai");
+            const statShaoEl = document.getElementById("statShao");
+            let target = null;
+            if (statDaiEl && statDaiEl.contains(e.target)) target = 'dai';
+            else if (statShaoEl && statShaoEl.contains(e.target)) target = 'shao';
+            if (!target) return;
+            const currentVal = target === 'dai' ? appData.thresholdDai : appData.thresholdShao;
+            const label = target === 'dai' ? "带花品" : "少量花品";
+            const newThresh = prompt(`请输入${label}统计阈值 (当前 ${currentVal}):`, currentVal);
+            if (newThresh !== null) {
+                const val = parseInt(newThresh, 10);
+                if (!isNaN(val) && val >= 0) {
+                    if (target === 'dai') appData.thresholdDai = val;
+                    else appData.thresholdShao = val;
+                    saveStorage(); renderTable();
+                    showToast(`✅ ${label}阈值已改为 ${val}`);
+                } else alert("请输入有效的非负整数！");
+            }
+        });
+    }
+    document.getElementById("btnSaveAll").addEventListener('click', saveAllData);
+    document.getElementById("btnCloudSync").addEventListener('click', async () => {
+                await saveStorage(true);
+        await loadStorage();
+        showToast('☁️ 云端同步完成');
+    });
+    document.getElementById("btnPullData").addEventListener('click', forcePullFromCloud);
+    document.getElementById("btnLoadHistory").addEventListener('click', loadCloudHistory);
+    document.getElementById("btnLib").addEventListener('click', () => goPage('lib'));
+    document.getElementById("btnInputData").addEventListener('click', () => goPage('inputData'));
+    document.getElementById("btnSalesPage").addEventListener('click', () => goPage('salesPage'));
+    document.getElementById("btnDivPage").addEventListener('click', () => goPage('divPage'));
+    document.getElementById("btnSnapshotPage").addEventListener('click', () => goPage('snapshotPage'));
+    document.getElementById("btnDiffPage").addEventListener('click', () => goPage('diffPage'));
+    document.getElementById("btnExportAll").addEventListener('click', openExportPopup);
+
+    document.getElementById("libBackHome").addEventListener('click', () => goPage('home'));
+    document.getElementById("libBackInput").addEventListener('click', () => goPage('inputData'));
+    document.getElementById("libBackTable").addEventListener('click', () => goPage('table'));
+    document.getElementById("libBackSales").addEventListener('click', () => goPage('salesPage'));
+    document.getElementById("btnBatchImportLib").addEventListener('click', openBatchImportLib);
+    document.getElementById("btnUndoDelete").addEventListener('click', undoDelete);
+    document.getElementById("btnSaveNewVar").addEventListener('click', saveNewVariety);
+
+    document.getElementById("inputBackHome").addEventListener('click', () => goPage('home'));
+    document.getElementById("btnClearInput").addEventListener('click', clearInputData);
+    document.getElementById("btnDoParse").addEventListener('click', doParse);
+    document.getElementById("btnDoImport").addEventListener('click', doImportBackup);
+    document.getElementById("btnGoToTable").addEventListener('click', () => goPage('table'));
+
+    document.getElementById("salesBackHome").addEventListener('click', () => goPage('home'));
+    document.getElementById("btnSaveSales").addEventListener('click', saveSalesText);
+    document.getElementById("btnClearSales").addEventListener('click', clearSalesInput);
+
+    document.getElementById("divBackHome").addEventListener('click', () => goPage('home'));
+    document.getElementById("btnSaveDiv").addEventListener('click', saveDivisor);
+
+    document.getElementById("snapBackHome").addEventListener('click', () => goPage('home'));
+    document.getElementById("btnCreateSnap").addEventListener('click', createSnapshot);
+
+    document.getElementById("diffBackHome").addEventListener('click', () => goPage('home'));
+    document.getElementById("btnRunDiff").addEventListener('click', runDiffCompare);
+    document.getElementById("btnDiffModifyResult").addEventListener('click', openDiffEdit);
+    document.getElementById("btnDiffUpdateTable").addEventListener('click', updateTableFromDiff);
+    document.getElementById("btnDiffSaveEdit").addEventListener('click', saveDiffEdit);
+    document.getElementById("btnDiffCancelEdit").addEventListener('click', cancelDiffEdit);
+    document.getElementById("btnDiffDeleteData").addEventListener('click', deleteDiffData);
+
+    document.getElementById("tableBackHome").addEventListener('click', () => goPage('home'));
+    document.getElementById("btnAddCol").addEventListener('click', addCustomCol);
+    document.getElementById("btnDelSelectedRows").addEventListener('click', deleteSelectedRows);
+    document.getElementById("btnUndoTableDelete").addEventListener('click', undoTableDelete);
+    document.getElementById("btnHideSelectedCol").addEventListener('click', hideSelectedCol);
+    document.getElementById("btnUnhideCol").addEventListener('click', unhideLastCol);
+    document.getElementById("btnManualAddRow").addEventListener('click', manualAddRow);
+    document.getElementById("btnClearHighlight").addEventListener('click', clearHighlight);
+    document.getElementById("btnClearRemoved").addEventListener('click', clearRemoved);
+
+    document.querySelectorAll('#btnExportSelectedColsImg, #btnExportSelectedColsImg2').forEach(btn => {
+        btn.addEventListener('click', exportSelectedColsToImage);
+    });
+
+    document.getElementById("btnPopJumpLib").addEventListener('click', jumpToLibFromPop);
+    document.getElementById("btnPopCloseUnknown").addEventListener('click', closeUnknownVarPop);
+    document.getElementById("btnSubmitEditVar").addEventListener('click', submitEditVariety);
+    document.getElementById("btnCloseEditVar").addEventListener('click', closeEditVarPopup);
+
+    document.getElementById("btnFillExport").addEventListener('click', fillExportText);
+    document.getElementById("btnCopyExport").addEventListener('click', copyExportText);
+    document.getElementById("btnSaveToFile").addEventListener('click', saveExportToFile);
+    document.getElementById("btnCloseExport").addEventListener('click', closeExportPopup);
+
+    document.getElementById("btnCloseSnapDetail").addEventListener('click', () => {
+        document.getElementById("popSnapDetail").classList.add("hide");
+    });
+
+    // 问题2：快照详情页按钮
+    document.getElementById("btnSnapDownload").addEventListener('click', snapDetailDownload);
+    document.getElementById("btnSnapSortMenu").addEventListener('click', snapDetailSort);
+    document.getElementById("btnSnapFilterMenu").addEventListener('click', snapDetailFilter);
+    document.getElementById("btnSnapReset").addEventListener('click', snapDetailReset);
+    document.getElementById("btnSnapFilterOk").addEventListener('click', () => {
+        const checkboxes = document.querySelectorAll('#snapFilterList input[type="checkbox"]');
+        const selectedValues = [];
+        checkboxes.forEach(cb => { if (cb.checked) selectedValues.push(Number(cb.value)); });
+        appData._snapDetailState.filterValues = selectedValues;
+        document.getElementById('popSnapFilter').classList.add('hide');
+        applySnapDetailView();
+    });
+    document.getElementById("btnSnapFilterCancel").addEventListener('click', () => {
+        document.getElementById('popSnapFilter').classList.add('hide');
+    });
+
+    document.getElementById("searchInput").addEventListener('input', renderTable);
+    document.querySelectorAll('input[name="exportMode"]').forEach(el => el.addEventListener('change', fillExportText));
+
+    document.getElementById("btnBatchImportLibConfirm").addEventListener('click', confirmBatchImportLib);
+    document.getElementById("btnBatchImportLibCancel").addEventListener('click', closeBatchImportLib);
+
+    const diffOldEl = document.getElementById("diffOld");
+    const diffNewEl = document.getElementById("diffNew");
+    let diffSaveTimer = null;
+    function scheduleDiffSave() {
+        appData.diffOldText = diffOldEl.value;
+        appData.diffNewText = diffNewEl.value;
+        if (diffSaveTimer) clearTimeout(diffSaveTimer);
+        diffSaveTimer = setTimeout(() => { saveStorage(); diffSaveTimer = null; }, 500);
+    }
+    diffOldEl.addEventListener('input', scheduleDiffSave);
+    diffNewEl.addEventListener('input', scheduleDiffSave);
+}
+
+function applyCustomButtonNames() {
+    for (const [id, name] of Object.entries(appData.button_names)) {
+        const btn = document.getElementById(id);
+        if (btn) btn.innerText = name;
+    }
+}
+
+function bindLongPressToButtons() {
+    document.querySelectorAll('.home-btn').forEach(btn => {
+        let pressTimer = null;
+        let isLongPress = false;
+        btn.addEventListener('pointerdown', (e) => {
+            isLongPress = false;
+            if (e.cancelable) e.preventDefault();
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                const currentText = btn.innerText.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+                const newName = prompt('请输入新的按钮名称：', currentText);
+                if (newName !== null && newName.trim() !== '') {
+                    const finalName = newName.trim();
+                    btn.innerText = finalName;
+                    appData.button_names[btn.id] = finalName;
+                    saveStorage();
+                    showToast('✅ 按钮名称已修改');
+                }
+                pressTimer = null;
+            }, 800);
+        });
+        btn.addEventListener('pointerup', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+        btn.addEventListener('pointerleave', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+        btn.addEventListener('pointercancel', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+        btn.addEventListener('click', (e) => {
+            if (isLongPress) { e.preventDefault(); e.stopPropagation(); }
+        }, true);
+    });
+}
+
+async function initApp() {
+    await loadStorage();
+    bindGlobalButtons();
+    applyCustomButtonNames();
+    bindLongPressToButtons();
+    goPage('home');
+    if (appData.pure_rows.length === 0) {
+        alert('当前没有读取到库存数据。如果您之前有数据，请点击“立即同步云端”手动拉取。');
+    }
+}
+
+initApp();
+</script>
+</body>
+</html>
