@@ -1696,6 +1696,15 @@ function processSalesLine(index) {
         if (/粗杆|粗苗|粗枝|粗的/.test(line)) spec = '粗';
         else if (/细杆|细苗|细枝|细的/.test(line)) spec = '细';
     }
+        // ★ 新增：检测非“小苗”描述，询问是否忽略该行
+    const isNonSeedling = /高飘|高杆|大苗|中苗|嫁接|地栽|盆栽|多年生/.test(line);
+    if (isNonSeedling) {
+        const skip = confirm(`⚠️ 检测到非“小苗”描述：\n"${line}"\n是否忽略该行（不导入此销量）？\n\n点击“确定”忽略此行，点击“取消”继续导入。`);
+        if (skip) { 
+            processSalesLine(index + 1); 
+            return; 
+        }
+    }
     variety = variety.replace(/\+/g, "＋");
     const matchedVariety = matchVariety(variety);
     if (!matchedVariety) {
