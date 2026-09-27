@@ -2307,10 +2307,11 @@ function goPage(pageName) {
             }
         }
         if (pageName === 'table') {
-            renderTable();
-            let noPriceItems = [];
-            appData.pure_rows.forEach(r => {
-                const vn = r.品种;
+        renderTable();
+        let noPriceItems = [];
+        appData.pure_rows.forEach(r => {
+            if (!r) return; // 👈 新增：跳过空数据
+            const vn = r.品种;
                 if (appData.variety_prices[vn] === undefined && !noPriceItems.includes(vn)) {
                     noPriceItems.push(vn);
                 }
