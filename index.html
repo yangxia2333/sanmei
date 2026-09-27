@@ -240,6 +240,8 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <button id="btnDelSelectedRows" style="background:#d9534f;">删除选中行</button>
 <button id="btnUndoTableDelete" style="background:#17a2b8;">↩ 撤销删除</button>
 <button id="btnHideSelectedCol" style="background:#6c757d;">隐藏选中列</button>
+<button id="btnHideSelectedRows" style="background:#6c757d;">隐藏选中行</button>
+<button id="btnUnhideRows" style="background:#17a2b8;">取消隐藏行</button>
 <button id="btnUnhideCol" style="background:#17a2b8;">取消隐藏列</button>
 <button id="btnFilterNotice" style="display:none;background:#f0ad4e;">剩余库存已进行筛选</button>
 </div>
@@ -397,6 +399,7 @@ let appData = {
     button_names: {},
     pure_rows: [], original_pure_rows: [],
     hidden_cols: new Set(), customCols: [],
+        _hiddenRows: new Set(), // 新增：记录本地隐藏的行
     pendingNewVar: "", editVarietyIndex: null,
     autoCombineCfg: JSON.parse(JSON.stringify(autoCombineList)),
     salesPendingLines: [], salesAllLines: [],
@@ -2147,6 +2150,13 @@ async function loadStorage() {
             appData.hidden_cols = new Set(arr);
         } catch(e) { console.warn('隐藏列状态读取失败'); }
     }
+        // 读取本地专属的隐藏行状态（同样不参与云端同步）
+    const hiddenRowsRaw = localStorage.getItem("tri_mei_hidden_rows");
+    if (hiddenRowsRaw) {
+        try {
+            appData._hiddenRows = new Set(JSON.parse(hiddenRowsRaw));
+        } catch(e) { console.warn('隐藏行状态读取失败'); }
+    }
     try {
         const { data, error } = await cloudDB.from('devices').select('data, last_sync').order('last_sync', { ascending: false }).limit(1);
         if (!error && data && data.length > 0) {
@@ -2221,6 +2231,7 @@ function saveStorage(isManualSync = false) {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
         localStorage.setItem(HIDDEN_KEY, JSON.stringify(Array.from(appData.hidden_cols)));
+            localStorage.setItem("tri_mei_hidden_rows", JSON.stringify(Array.from(appData._hiddenRows || [])));
     const devName = (navigator.userAgent.includes('Android') ? '安卓手机' : navigator.userAgent.includes('iPhone') ? '苹果手机' : navigator.userAgent.includes('Windows') ? 'Windows电脑' : '未知设备');
     cloudDB.from('devices').upsert({
         id: DEVICE_ID, device_name: devName,
@@ -2750,6 +2761,10 @@ function renderTable() {
     try {
         const searchWord = document.getElementById("searchInput").value.trim().toLowerCase();
         let fullList = assembleFullData().filter(r => r);
+                // ★ 过滤掉被本地隐藏的行
+        if (appData._hiddenRows && appData._hiddenRows.size > 0) {
+            fullList = fullList.filter(r => !appData._hiddenRows.has(`${r.品种}||${r.品相}||${r.规格||''}`));
+        }
         const dataCols = [...baseColsName, ...appData.customCols];
         if (appData.remainFilterValues && appData.remainFilterValues.length > 0) {
             const filterSet = new Set(appData.remainFilterValues);
@@ -3225,6 +3240,29 @@ function bindGlobalButtons() {
     document.getElementById("btnDelSelectedRows").addEventListener('click', deleteSelectedRows);
     document.getElementById("btnUndoTableDelete").addEventListener('click', undoTableDelete);
     document.getElementById("btnHideSelectedCol").addEventListener('click', hideSelectedCol);
+        document.getElementById("btnHideSelectedRows").addEventListener('click', function() {
+        if (selectedRows.size === 0) { alert("请先勾选要隐藏的行"); return; }
+        const hiddenRows = appData._hiddenRows || new Set();
+        selectedRows.forEach(idx => {
+            if (idx >= 0 && idx < appData.pure_rows.length) {
+                const r = appData.pure_rows[idx];
+                hiddenRows.add(`${r.品种}||${r.品相}||${r.规格||''}`);
+            }
+        });
+        appData._hiddenRows = hiddenRows;
+        selectedRows.clear();
+        saveStorage();
+        renderTable();
+        showToast('✅ 已隐藏选中行');
+    });
+
+    document.getElementById("btnUnhideRows").addEventListener('click', function() {
+        if (!appData._hiddenRows || appData._hiddenRows.size === 0) { alert("当前没有隐藏的行"); return; }
+        appData._hiddenRows.clear();
+        saveStorage();
+        renderTable();
+        showToast('✅ 已取消隐藏所有行');
+    });
     document.getElementById("btnUnhideCol").addEventListener('click', unhideLastCol);
     document.getElementById("btnManualAddRow").addEventListener('click', manualAddRow);
     document.getElementById("btnClearHighlight").addEventListener('click', clearHighlight);
