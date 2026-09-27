@@ -222,12 +222,14 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 </div>
 </div>
 
-<div id="pageTable" class="hide">
 <div class="back-bar">
 <button class="gray" id="tableBackHome">返回首页</button>
 <button id="btnClearHighlight" style="background:#6c757d;">清除高亮</button>
 <button id="btnClearRemoved" style="background:#c0392b;">清除红色标记</button>
-<button id="btnExportSelectedColsImg" style="background:#e67e22;">导出选中列为图片</button>
+<button id="btnAddCol" style="background:#2b65ec;">+增加列</button>
+<button id="btnDelSelectedRows" style="background:#d9534f;">删除选中行</button>
+<button id="btnUndoTableDelete" style="background:#17a2b8;">↩ 撤销删除</button>
+<button id="btnExportSelectedColsImg" style="background:#e67e22;">导出选中列<div class="col-op-bar">为图片</button>
 </div>
 <div class="box">
 <div class="search-bar"><input id="searchInput" placeholder="搜索品种过滤表格"></div>
@@ -236,14 +238,10 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <div class="stat-panel" id="statPanel"></div>
 <h3>结果表格（黄色行=组合行，可编辑且联动）</h3>
 <div class="col-op-bar">
-<button id="btnAddCol">+增加列</button>
-<button id="btnDelSelectedRows" style="background:#d9534f;">删除选中行</button>
-<button id="btnUndoTableDelete" style="background:#17a2b8;">↩ 撤销删除</button>
-<button id="btnHideSelectedCol" style="background:#6c757d;">隐藏选中列</button>
-<button id="btnHideSelectedRows" style="background:#6c757d;">隐藏选中行</button>
-<button id="btnUnhideRows" style="background:#17a2b8;">取消隐藏行</button>
-<button id="btnUnhideCol" style="background:#17a2b8;">取消隐藏列</button>
-<button id="btnFilterNotice" style="display:none;background:#f0ad4e;">剩余库存已进行筛选</button>
+<button id="btnHideSelectedCol" style="background:#28a745;">隐藏选中列</button>
+<button id="btnUnhideCol" style="background:#8fd19e;">取消隐藏列</button>
+<button id="btnHideSelectedRows" style="background:#007bff;">隐藏选中行</button>
+<button id="btnUnhideRows" style="background:#8bb9fe;">取消隐藏行</button>
 </div>
 <div id="tableWrap" style="overflow-x:auto;"></div>
 <button class="add-row-btn" id="btnManualAddRow">+ 手动新增一行</button>
