@@ -267,6 +267,13 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <input id="editVarName" placeholder="正式品种名">
 <input id="editVarAlias" placeholder="别名逗号分隔">
 <input id="editVarPrice" type="number" step="0.1" placeholder="带花价格（元）">
+<div id="combinePhaseBox" style="display:none;background:#fff8e1;padding:8px;border-radius:6px;margin:6px 0;">
+<div style="font-size:12px;color:#888;margin-bottom:4px;">组合品相配置：</div>
+<label style="font-size:12px;">左边品种的品相:</label>
+<input id="editVarAPhase" placeholder="少量花 或 带花" value="少量花">
+<label style="font-size:12px;">右边品种的品相:</label>
+<input id="editVarBPhase" placeholder="少量花 或 带花" value="少量花">
+</div>
 <button id="btnSubmitEditVar">保存修改</button>
 <button id="btnAddFinePrice" style="background:#f0ad4e;">增加细杆价格</button>
 <button class="gray" id="btnCloseEditVar">关闭</button>
@@ -379,9 +386,9 @@ const STORAGE_KEY = "tri_mei_store";
 const HIDDEN_KEY = "tri_mei_hidden_cols";
 const SNAPSHOT_KEY = "tri_mei_snapshots";
 const autoCombineList = [
-    { a: "橙粉公主", b: "云南紫", name: "橙粉公主＋云南紫", lock: false },
-    { a: "金心橙白", b: "云南紫", name: "金心橙白＋云南紫", lock: false },
-    { a: "娆", b: "广红樱", name: "娆＋广红樱", lock: false }
+    { a: "橙粉公主", b: "云南紫", name: "橙粉公主＋云南紫", aPhase: "少量花", bPhase: "少量花", lock: false },
+    { a: "金心橙白", b: "云南紫", name: "金心橙白＋云南紫", aPhase: "少量花", bPhase: "少量花", lock: false },
+    { a: "娆", b: "广红樱", name: "娆＋广红樱", aPhase: "少量花", bPhase: "少量花", lock: false }
 ];
 
 let appData = {
@@ -738,13 +745,13 @@ function recalculateCombines(fixedPureIdx) {
         for (const c of cfg) {
             const parsed = parseCombineName(c.name);
             if (parsed) {
-                allCombineCfg.push({ name: c.name, a: parsed.a, b: parsed.b, lock: c.lock, _manual: false });
+                allCombineCfg.push({ name: c.name, a: parsed.a, b: parsed.b, aPhase: c.aPhase || "少量花", bPhase: c.bPhase || "少量花", lock: c.lock, _manual: false });
                 seenNames.add(c.name);
             } else {
                 const a = matchVariety(c.a);
                 const b = matchVariety(c.b);
                 if (a && b) {
-                    allCombineCfg.push({ name: c.name, a, b, lock: c.lock, _manual: false });
+                    allCombineCfg.push({ name: c.name, a, b, aPhase: c.aPhase || "少量花", bPhase: c.bPhase || "少量花", lock: c.lock, _manual: false });
                     seenNames.add(c.name);
                 }
             }
@@ -755,7 +762,7 @@ function recalculateCombines(fixedPureIdx) {
                 if (!seenNames.has(name) && (name.includes("+") || name.includes("＋"))) {
                     const parsed = parseCombineName(name);
                     if (parsed) {
-                        allCombineCfg.push({ name: name, a: parsed.a, b: parsed.b, lock: false, _manual: true });
+                        allCombineCfg.push({ name: name, a: parsed.a, b: parsed.b, aPhase: "少量花", bPhase: "少量花", lock: false, _manual: true });
                         seenNames.add(name);
                     }
                 }
@@ -763,7 +770,6 @@ function recalculateCombines(fixedPureIdx) {
         }
         if (allCombineCfg.length === 0) return;
 
-        // 获取当前用户正在编辑的组合（固定值）
         let fixedName = null, fixedIdx = -1, fixedCfg = null;
         if (fixedPureIdx !== undefined && fixedPureIdx !== null && fixedPureIdx >= 0 && fixedPureIdx < appData.pure_rows.length) {
             const row = appData.pure_rows[fixedPureIdx];
@@ -776,27 +782,30 @@ function recalculateCombines(fixedPureIdx) {
 
         const assigned = {}, used = {};
 
-        // ===== 第一步：手动修改过的组合，优先保留其值 =====
-        // 收集所有"被用户手动修改过"的组合，按修改顺序处理
-        const manualNames = Object.keys(appData._manualCombineValues || {}).filter(n => seenNames.has(n));
-        // 如果当前固定的是某一个组合，也把它排在最前面
-        if (fixedCfg && !manualNames.includes(fixedCfg.name)) manualNames.unshift(fixedCfg.name);
-
-        // 先计算每个组合可用的"少量花"库存（不区分独有/共享）
+        // 按 品种||品相 汇总库存
         const varietyStock = {};
         appData.pure_rows.forEach(r => {
-            if (r.品相 === "少量花" && !r._isCombine) {
+            if (!r._isCombine && r.品相 !== "组合") {
                 const v = Number(r.原始数量) || 0;
-                varietyStock[r.品种] = (varietyStock[r.品种] || 0) + v;
+                const key = r.品种 + '||' + r.品相;
+                varietyStock[key] = (varietyStock[key] || 0) + v;
             }
         });
+        function getStock(variety, phase) { return varietyStock[variety + '||' + phase] || 0; }
+        function getUsed(variety, phase) { return used[variety + '||' + phase] || 0; }
+        function addUsed(variety, phase, amount) {
+            const key = variety + '||' + phase;
+            used[key] = (used[key] || 0) + amount;
+        }
 
-        // 处理手动修改过的组合
+        const manualNames = Object.keys(appData._manualCombineValues || {}).filter(n => seenNames.has(n));
+        if (fixedCfg && !manualNames.includes(fixedCfg.name)) manualNames.unshift(fixedCfg.name);
+
         for (const name of manualNames) {
             const c = allCombineCfg.find(x => x.name === name);
             if (!c) continue;
-            const stockA = varietyStock[c.a] || 0;
-            const stockB = varietyStock[c.b] || 0;
+            const stockA = getStock(c.a, c.aPhase);
+            const stockB = getStock(c.b, c.bPhase);
             const maxTake = Math.min(stockA, stockB);
             const userVal = Number(appData._manualCombineValues[name]) || 0;
             const take = Math.min(userVal, maxTake);
@@ -805,11 +814,10 @@ function recalculateCombines(fixedPureIdx) {
                 appData._manualCombineValues[name] = take;
             }
             assigned[c.name] = take;
-            used[c.a] = (used[c.a] || 0) + take;
-            used[c.b] = (used[c.b] || 0) + take;
+            addUsed(c.a, c.aPhase, take);
+            addUsed(c.b, c.bPhase, take);
         }
 
-        // ===== 第二步：处理共享品种（问题5核心逻辑） =====
         const sharedResolved = new Set();
         const varToCombines = {};
         for (const c of allCombineCfg) {
@@ -822,17 +830,18 @@ function recalculateCombines(fixedPureIdx) {
             const cfgs = varToCombines[v];
             if (cfgs.length === 2) {
                 const cA = cfgs[0], cB = cfgs[1];
-                // 如果这两个组合已经手动赋值过，跳过
                 if (assigned[cA.name] !== undefined && assigned[cB.name] !== undefined) continue;
                 if (sharedResolved.has(cA.name) || sharedResolved.has(cB.name)) continue;
 
                 const uA = (cA.a === v) ? cA.b : cA.a;
                 const uB = (cB.a === v) ? cB.b : cB.a;
+                const vPhase = (cA.a === v) ? cA.aPhase : cA.bPhase;
+                const uAPhase = (cA.a === uA) ? cA.aPhase : cA.bPhase;
+                const uBPhase = (cB.a === uB) ? cB.aPhase : cB.bPhase;
 
-                // 获取库存（已扣除手动组合使用掉的部分）
-                const qS = Math.max(0, (varietyStock[v] || 0) - (used[v] || 0));
-                const qUA = Math.max(0, (varietyStock[uA] || 0) - (used[uA] || 0));
-                const qUB = Math.max(0, (varietyStock[uB] || 0) - (used[uB] || 0));
+                const qS = Math.max(0, getStock(v, vPhase) - getUsed(v, vPhase));
+                const qUA = Math.max(0, getStock(uA, uAPhase) - getUsed(uA, uAPhase));
+                const qUB = Math.max(0, getStock(uB, uBPhase) - getUsed(uB, uBPhase));
 
                 if (qS === 0) {
                     if (assigned[cA.name] === undefined) assigned[cA.name] = 0;
@@ -842,61 +851,36 @@ function recalculateCombines(fixedPureIdx) {
                 }
 
                 let takeA = 0, takeB = 0;
-
-                if (qUA === 0 && qUB === 0) {
-                    takeA = 0; takeB = 0;
-                } else if (qUA > 0 && qUB === 0) {
-                    takeA = Math.min(qS, qUA);
-                    takeB = 0;
-                } else if (qUB > 0 && qUA === 0) {
-                    takeB = Math.min(qS, qUB);
-                    takeA = 0;
-                } else {
-                    // 双方独有品种都有库存，按"最少品种"规则分配
+                if (qUA === 0 && qUB === 0) { takeA = 0; takeB = 0; }
+                else if (qUA > 0 && qUB === 0) { takeA = Math.min(qS, qUA); takeB = 0; }
+                else if (qUB > 0 && qUA === 0) { takeB = Math.min(qS, qUB); takeA = 0; }
+                else {
                     const minQ = Math.min(qS, qUA, qUB);
-                    if (minQ === qS) {
-                        // 共享品种最少 → 平分
-                        takeA = Math.floor(qS / 2);
-                        takeB = Math.floor(qS / 2);
-                    } else if (minQ === qUA) {
-                        // A的独有品种最少 → A拿满自己的独有，剩下的共享给B
-                        takeA = qUA;
-                        const remS = qS - takeA;
-                        takeB = Math.min(remS, qUB);
-                    } else if (minQ === qUB) {
-                        // B的独有品种最少 → B拿满自己的独有，剩下的共享给A
-                        takeB = qUB;
-                        const remS = qS - takeB;
-                        takeA = Math.min(remS, qUA);
-                    }
+                    if (minQ === qS) { takeA = Math.floor(qS / 2); takeB = Math.floor(qS / 2); }
+                    else if (minQ === qUA) { takeA = qUA; takeB = Math.min(qS - takeA, qUB); }
+                    else if (minQ === qUB) { takeB = qUB; takeA = Math.min(qS - takeB, qUA); }
                 }
-
-                // 如果其中一个组合有手动值，则尊重手动值
                 if (appData._manualCombineValues && appData._manualCombineValues[cA.name] !== undefined && assigned[cA.name] === undefined) {
                     takeA = Math.max(0, Math.min(appData._manualCombineValues[cA.name], qS, qUA));
-                    const remS = qS - takeA;
-                    takeB = Math.min(remS, qUB);
+                    takeB = Math.min(qS - takeA, qUB);
                 }
                 if (appData._manualCombineValues && appData._manualCombineValues[cB.name] !== undefined && assigned[cB.name] === undefined) {
                     takeB = Math.max(0, Math.min(appData._manualCombineValues[cB.name], qS, qUB));
-                    const remS = qS - takeB;
-                    takeA = Math.min(remS, qUA);
+                    takeA = Math.min(qS - takeB, qUA);
                 }
-
                 if (assigned[cA.name] === undefined) assigned[cA.name] = takeA;
                 if (assigned[cB.name] === undefined) assigned[cB.name] = takeB;
-                used[v] = (used[v] || 0) + (assigned[cA.name] || 0) + (assigned[cB.name] || 0);
-                used[uA] = (used[uA] || 0) + (assigned[cA.name] || 0);
-                used[uB] = (used[uB] || 0) + (assigned[cB.name] || 0);
+                addUsed(v, vPhase, (assigned[cA.name] || 0) + (assigned[cB.name] || 0));
+                addUsed(uA, uAPhase, assigned[cA.name] || 0);
+                addUsed(uB, uBPhase, assigned[cB.name] || 0);
                 sharedResolved.add(cA.name); sharedResolved.add(cB.name);
             }
         }
 
-        // ===== 第三步：剩余的常规组合处理 =====
         for (const c of allCombineCfg) {
             if (assigned[c.name] !== undefined) continue;
-            const availA = Math.max(0, (varietyStock[c.a] || 0) - (used[c.a] || 0));
-            const availB = Math.max(0, (varietyStock[c.b] || 0) - (used[c.b] || 0));
+            const availA = Math.max(0, getStock(c.a, c.aPhase) - getUsed(c.a, c.aPhase));
+            const availB = Math.max(0, getStock(c.b, c.bPhase) - getUsed(c.b, c.bPhase));
             let take;
             if (appData._manualCombineValues && appData._manualCombineValues[c.name] !== undefined) {
                 take = Math.max(0, Math.min(appData._manualCombineValues[c.name], availA, availB));
@@ -904,11 +888,10 @@ function recalculateCombines(fixedPureIdx) {
                 take = Math.max(0, Math.min(availA, availB));
             }
             assigned[c.name] = take;
-            used[c.a] = (used[c.a] || 0) + take;
-            used[c.b] = (used[c.b] || 0) + take;
+            addUsed(c.a, c.aPhase, take);
+            addUsed(c.b, c.bPhase, take);
         }
 
-        // ===== 第四步：更新 UI 并清理 =====
         for (const c of allCombineCfg) {
             const name = c.name;
             const idx = combineMap[name];
@@ -1059,7 +1042,7 @@ function moveRow(rowIdx, dir) {
 }
 
 function manualAddRow() {
-    appData.pure_rows.push({ 品种: "", 品相: "带花", 原始数量: 0, 备注: "", 下架: false, _isCombine: false, _isSystemCombine: false, 规格: '' });
+    appData.pure_rows.push({ 品种: "", 品相: "组合", 原始数量: 0, 备注: "", 下架: false, _isCombine: true, _isSystemCombine: false, 规格: '' });
     appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
     appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
     selectedRows.clear();
@@ -2194,6 +2177,13 @@ function applyLoadedData(d) {
     appData.divisor = Number(d.divisor || 1.8);
     appData.customCols = d.customCols || [];
     appData.autoCombineCfg = d.autoCombineCfg || JSON.parse(JSON.stringify(autoCombineList));
+        // ★ 兼容老数据：给缺少品相配置的组合补上默认值
+    if (appData.autoCombineCfg) {
+        appData.autoCombineCfg.forEach(c => {
+            if (!c.aPhase) c.aPhase = "少量花";
+            if (!c.bPhase) c.bPhase = "少量花";
+        });
+    }
     appData.pure_rows = d.pure_rows || [];
     appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
     appData.deletedStack = d.deletedStack || [];
@@ -2435,6 +2425,16 @@ function saveNewVariety() {
     if (aliasStr) {
         const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
         aliases.forEach(a => { appData.alias_map[a] = formal; });
+    }
+    // ★ 如果名字带 + 号，自动注册为组合
+    if (formal.includes("+") || formal.includes("＋") || aliasStr.includes("组合")) {
+        const parts = formal.split(/[\+\＋]/).map(s => s.trim());
+        if (parts.length === 2) {
+            const exists = appData.autoCombineCfg.some(c => c.name === formal);
+            if (!exists) {
+                appData.autoCombineCfg.push({ a: parts[0], b: parts[1], name: formal, aPhase: "少量花", bPhase: "少量花", lock: false });
+            }
+        }
     }
     saveStorage();
     document.getElementById("newVarName").value = "";
@@ -2763,6 +2763,8 @@ function renderTable() {
     try {
         const searchWord = document.getElementById("searchInput").value.trim().toLowerCase();
         let fullList = assembleFullData().filter(r => r);
+                // ★ 过滤掉数量为0的组合行
+        fullList = fullList.filter(r => !(r.品相 === "组合" && r._isCombine && (Number(r.原始数量)||0) <= 0));
                 // ★ 过滤掉被本地隐藏的行
         if (appData._hiddenRows && appData._hiddenRows.size > 0) {
             fullList = fullList.filter(r => !appData._hiddenRows.has(`${r.品种}||${r.品相}||${r.规格||''}`));
@@ -3061,7 +3063,7 @@ function cellEdit(ri, ci, val) {
         if (newVal === 0) delete appData.sales_dict[salesKey];
         else appData.sales_dict[salesKey] = newVal;
         saveStorage(); renderTable(); return;
-    } else if (key === "品种") {
+        } else if (key === "品种") {
         let newName = val.trim();
         newName = normalizeVariety(newName);
         const m = newName.match(/^(.*?)(粗|细)$/);
@@ -3069,6 +3071,14 @@ function cellEdit(ri, ci, val) {
         else { r.品种 = newName; r.规格 = ''; }
         const matched = matchVariety(r.品种);
         if (matched === null && r.品种.trim() !== "") openUnknownVarPop(r.品种);
+        
+        // ★ 新增：如果是组合，自动设置属性并重算
+        if (r.品种.includes("+") || r.品种.includes("＋")) {
+            r.品相 = "组合";
+            r._isCombine = true;
+            r._isSystemCombine = false;
+            recalculateCombines(idx);
+        }
     } else if (key === "品相") {
         r.品相 = val;
         if (val === "组合" && !r._isCombine) { r._isCombine = true; r._isSystemCombine = true; recalculateCombines(idx); }
@@ -3108,6 +3118,19 @@ function openEditVariety(idx) {
     if (typeof p === 'number') coarsePrice = p;
     else if (typeof p === 'object' && p !== null && p.粗 !== undefined) coarsePrice = p.粗;
     document.getElementById("editVarPrice").value = coarsePrice;
+
+    // ★ 判断是否是组合：名称带 + 号，或者别名里含"组合"两个字
+    const aliasStr = aliases.join(",");
+    const isCombine = name.includes("+") || name.includes("＋") || aliasStr.includes("组合");
+    const phaseBox = document.getElementById("combinePhaseBox");
+    if (isCombine) {
+        phaseBox.style.display = 'block';
+        const cfg = appData.autoCombineCfg.find(c => c.name === name);
+        document.getElementById("editVarAPhase").value = (cfg && cfg.aPhase) ? cfg.aPhase : "少量花";
+        document.getElementById("editVarBPhase").value = (cfg && cfg.bPhase) ? cfg.bPhase : "少量花";
+    } else {
+        phaseBox.style.display = 'none';
+    }
     document.getElementById("editVarPopup").classList.remove("hide");
 }
 
@@ -3155,7 +3178,26 @@ function submitEditVariety() {
     if (newPrice !== undefined) appData.variety_prices[newName] = newPrice;
     else delete appData.variety_prices[newName];
     
+    // ★ 保存组合品相配置
+    const isCombine = newName.includes("+") || newName.includes("＋") || aliasStr.includes("组合");
+    if (isCombine) {
+        const aPhase = document.getElementById("editVarAPhase").value.trim() || "少量花";
+        const bPhase = document.getElementById("editVarBPhase").value.trim() || "少量花";
+        const parts = newName.split(/[\+\＋]/).map(s => s.trim());
+        if (parts.length === 2) {
+            let cfg = appData.autoCombineCfg.find(c => c.name === newName);
+            if (!cfg) {
+                cfg = { a: parts[0], b: parts[1], name: newName, aPhase: aPhase, bPhase: bPhase, lock: false };
+                appData.autoCombineCfg.push(cfg);
+            } else {
+                cfg.aPhase = aPhase;
+                cfg.bPhase = bPhase;
+            }
+        }
+    }
+    
     appData.pure_rows.forEach(r => { if (r.品种 === oldName) r.品种 = newName; });
+    recalculateCombines(null);
     appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
     appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
     saveStorage();
