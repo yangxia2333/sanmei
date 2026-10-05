@@ -725,9 +725,21 @@ function findRowByVarietyPhaseIgnoreSpec(variety, phase) {
 function recalculateCombines(fixedPureIdx) {
     try {
         const cfg = appData.autoCombineCfg.filter(c => !c.lock);
+        // ★ 辅助函数：把组合名称按字母顺序排序，例如“同安红+阿达喜悦”变成“阿达喜悦+同安红”
+        function getCanonName(name) {
+            let parts = name.split(/[\+\＋]/).map(s => s.trim());
+            if (parts.length === 2) {
+                parts.sort();
+                return parts[0] + "＋" + parts[1];
+            }
+            return name;
+        }
         const combineMap = {};
         appData.pure_rows.forEach((r, idx) => {
-            if (r.品相 === "组合" && r._isCombine) combineMap[r.品种] = idx;
+            if (r.品相 === "组合" && r._isCombine) {
+                const canon = getCanonName(r.品种);
+                combineMap[canon] = idx;
+            }
         });
         function parseCombineName(name) {
             let n = name.trim();
@@ -745,25 +757,30 @@ function recalculateCombines(fixedPureIdx) {
         for (const c of cfg) {
             const parsed = parseCombineName(c.name);
             if (parsed) {
-                allCombineCfg.push({ name: c.name, a: parsed.a, b: parsed.b, aPhase: c.aPhase || "少量花", bPhase: c.bPhase || "少量花", lock: c.lock, _manual: false });
-                seenNames.add(c.name);
+                const canon = getCanonName(c.name);
+                if (seenNames.has(canon)) continue; // 跳过重复的组合
+                seenNames.add(canon);
+                allCombineCfg.push({ name: c.name, canonName: canon, a: parsed.a, b: parsed.b, aPhase: c.aPhase || "少量花", bPhase: c.bPhase || "少量花", lock: c.lock, _manual: false });
             } else {
                 const a = matchVariety(c.a);
                 const b = matchVariety(c.b);
                 if (a && b) {
-                    allCombineCfg.push({ name: c.name, a, b, aPhase: c.aPhase || "少量花", bPhase: c.bPhase || "少量花", lock: c.lock, _manual: false });
-                    seenNames.add(c.name);
+                    const canon = getCanonName(c.name);
+                    if (seenNames.has(canon)) continue;
+                    seenNames.add(canon);
+                    allCombineCfg.push({ name: c.name, canonName: canon, a, b, aPhase: c.aPhase || "少量花", bPhase: c.bPhase || "少量花", lock: c.lock, _manual: false });
                 }
             }
         }
         for (const r of appData.pure_rows) {
             if (r.品相 === "组合" && r._isCombine) {
                 const name = r.品种;
-                if (!seenNames.has(name) && (name.includes("+") || name.includes("＋"))) {
+                const canon = getCanonName(name);
+                if (!seenNames.has(canon) && (name.includes("+") || name.includes("＋"))) {
                     const parsed = parseCombineName(name);
                     if (parsed) {
-                        allCombineCfg.push({ name: name, a: parsed.a, b: parsed.b, aPhase: "少量花", bPhase: "少量花", lock: false, _manual: true });
-                        seenNames.add(name);
+                        seenNames.add(canon);
+                        allCombineCfg.push({ name: name, canonName: canon, a: parsed.a, b: parsed.b, aPhase: "少量花", bPhase: "少量花", lock: false, _manual: true });
                     }
                 }
             }
@@ -781,8 +798,6 @@ function recalculateCombines(fixedPureIdx) {
         }
 
         const assigned = {}, used = {};
-
-        // 按 品种||品相 汇总库存
         const varietyStock = {};
         appData.pure_rows.forEach(r => {
             if (!r._isCombine && r.品相 !== "组合") {
@@ -798,7 +813,7 @@ function recalculateCombines(fixedPureIdx) {
             used[key] = (used[key] || 0) + amount;
         }
 
-        const manualNames = Object.keys(appData._manualCombineValues || {}).filter(n => seenNames.has(n));
+        const manualNames = Object.keys(appData._manualCombineValues || {}).filter(n => allCombineCfg.some(c => c.name === n));
         if (fixedCfg && !manualNames.includes(fixedCfg.name)) manualNames.unshift(fixedCfg.name);
 
         for (const name of manualNames) {
@@ -832,24 +847,20 @@ function recalculateCombines(fixedPureIdx) {
                 const cA = cfgs[0], cB = cfgs[1];
                 if (assigned[cA.name] !== undefined && assigned[cB.name] !== undefined) continue;
                 if (sharedResolved.has(cA.name) || sharedResolved.has(cB.name)) continue;
-
                 const uA = (cA.a === v) ? cA.b : cA.a;
                 const uB = (cB.a === v) ? cB.b : cB.a;
                 const vPhase = (cA.a === v) ? cA.aPhase : cA.bPhase;
                 const uAPhase = (cA.a === uA) ? cA.aPhase : cA.bPhase;
                 const uBPhase = (cB.a === uB) ? cB.aPhase : cB.bPhase;
-
                 const qS = Math.max(0, getStock(v, vPhase) - getUsed(v, vPhase));
                 const qUA = Math.max(0, getStock(uA, uAPhase) - getUsed(uA, uAPhase));
                 const qUB = Math.max(0, getStock(uB, uBPhase) - getUsed(uB, uBPhase));
-
                 if (qS === 0) {
                     if (assigned[cA.name] === undefined) assigned[cA.name] = 0;
                     if (assigned[cB.name] === undefined) assigned[cB.name] = 0;
                     sharedResolved.add(cA.name); sharedResolved.add(cB.name);
                     continue;
                 }
-
                 let takeA = 0, takeB = 0;
                 if (qUA === 0 && qUB === 0) { takeA = 0; takeB = 0; }
                 else if (qUA > 0 && qUB === 0) { takeA = Math.min(qS, qUA); takeB = 0; }
@@ -885,28 +896,36 @@ function recalculateCombines(fixedPureIdx) {
             if (appData._manualCombineValues && appData._manualCombineValues[c.name] !== undefined) {
                 take = Math.max(0, Math.min(appData._manualCombineValues[c.name], availA, availB));
             } else {
-                take = Math.max(0, Math.min(availA, availB));
+                take = Math.max(0, availA < availB ? availA : availB);
             }
             assigned[c.name] = take;
             addUsed(c.a, c.aPhase, take);
             addUsed(c.b, c.bPhase, take);
         }
 
+        // ★ 删除数量为 0 的组合行，更新有数量的行
+        const toRemove = [];
         for (const c of allCombineCfg) {
-            const name = c.name;
-            const idx = combineMap[name];
-            if (idx !== undefined) appData.pure_rows[idx].原始数量 = assigned[name] || 0;
-            else {
+            const val = assigned[c.name] || 0;
+            const idx = combineMap[c.canonName];
+            if (val <= 0 && idx !== undefined) {
+                toRemove.push(idx);
+            }
+        }
+        toRemove.sort((a, b) => b - a).forEach(idx => appData.pure_rows.splice(idx, 1));
+
+        for (const c of allCombineCfg) {
+            const val = assigned[c.name] || 0;
+            if (val <= 0) continue;
+            const existingRow = appData.pure_rows.find(r => getCanonName(r.品种) === c.canonName && r.品相 === "组合" && r._isCombine);
+            if (existingRow) {
+                existingRow.原始数量 = val;
+            } else {
                 appData.pure_rows.push({
-                    品种: name, 品相: "组合", 原始数量: assigned[name] || 0,
+                    品种: c.name, 品相: "组合", 原始数量: val,
                     备注: "", 下架: false, _isCombine: true, _isSystemCombine: true, 规格: ''
                 });
             }
-        }
-        const cfgNames = new Set(allCombineCfg.map(c => c.name));
-        for (let i = appData.pure_rows.length - 1; i >= 0; i--) {
-            const r = appData.pure_rows[i];
-            if (r._isCombine && r.品相 === "组合" && !cfgNames.has(r.品种)) appData.pure_rows.splice(i, 1);
         }
     } catch (e) {
         console.error("recalculateCombines error:", e);
@@ -1646,8 +1665,11 @@ function processSalesLine(index) {
                 phase = "组合"; spec = '';
                 const row = findRowByVarietyPhase(matched, phase, '');
                 if (!row) { alert(`表格中不存在组合品种“${matched}”品相“${phase}”的行，请检查`); processSalesLine(index + 1); return; }
-                const normalizedMatched = matched.replace(/\+/g, "＋");
-                appData.sales_dict[`${normalizedMatched}||${phase}||`] = qty;
+                
+                // ★ 关键修复：使用表格中实际的行来获取正确的“品种”名称（避免前后顺序或半角/全角不一致导致找不到销量）
+                const actualVariety = row.品种;
+                const actualSpec = row.规格 || '';
+                appData.sales_dict[`${actualVariety}||${phase}||${actualSpec}`] = qty;
                 processSalesLine(index + 1); return;
             }
             let row = null;
