@@ -2530,6 +2530,51 @@ function checkZeroStockAndAlert() {
     }
 }
 
+// ★ 新增：计算某个单品种从关联组合中获得的额外销量
+function getCombineExtraSale(row) {
+    if (!row || row.品相 === "组合") return 0;
+    let extraSale = 0;
+    appData.autoCombineCfg.forEach(cfg => {
+        // 1. 获取该组合的销量（兼容半/全角+号、正反顺序）
+        let names = [cfg.name];
+        let parts = cfg.name.split(/[\+\＋]/).map(s => s.trim());
+        if (parts.length === 2) {
+            names.push(parts[0] + "＋" + parts[1]);
+            names.push(parts[1] + "＋" + parts[0]);
+            names.push(parts[0] + "+" + parts[1]);
+            names.push(parts[1] + "+" + parts[0]);
+        }
+        let uniqueNames = [...new Set(names)];
+        let comboSale = 0;
+        for (let n of uniqueNames) {
+            let key = `${n}||组合||`;
+            if (appData.sales_dict[key] !== undefined) {
+                comboSale = Number(appData.sales_dict[key] || 0);
+                break;
+            }
+        }
+        if (comboSale === 0) return;
+
+        // 2. 判断当前行是否是这个组合的左右品种
+        const rowVarName = matchVariety(row.品种) || row.品种;
+        const cfgAName = matchVariety(cfg.a) || cfg.a;
+        const cfgBName = matchVariety(cfg.b) || cfg.b;
+        
+        const matchA = (cfgAName === rowVarName);
+        const matchB = (cfgBName === rowVarName);
+        const phaseA = cfg.aPhase || "少量花";
+        const phaseB = cfg.bPhase || "少量花";
+
+        // 3. 按照品种库配置的品相进行匹配累加
+        if (matchA && row.品相 === phaseA) {
+            extraSale += comboSale;
+        } else if (matchB && row.品相 === phaseB) {
+            extraSale += comboSale;
+        }
+    });
+    return extraSale;
+}
+
 function calcRow(row) {
     if (!row) return {};
     // ★ 兼容品相 "组" 和 "组合"
@@ -2556,6 +2601,8 @@ function calcRow(row) {
             break;
         }
     }
+        // ★ 新增：加上组合分摊的销量
+    sale += getCombineExtraSale(row);
     const rawNum = Number(row.原始数量) || 0;
     const remain = rawNum - sale;
     let douyin, wechat;
@@ -3120,12 +3167,17 @@ function cellEdit(ri, ci, val) {
         appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
         appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
         saveStorage(); renderTable(); return;
-    } else if (key === "销量") {
-        const newVal = Number(val) || 0;
-        const salesKey = `${r.品种}||${r.品相}||${r.规格||''}`;
-        if (newVal === 0) delete appData.sales_dict[salesKey];
-        else appData.sales_dict[salesKey] = newVal;
-        saveStorage(); renderTable(); return;
+            } else if (key === "销量") {
+            const newVal = Number(val) || 0;
+            const salesKey = `${r.品种}||${r.品相}||${r.规格||''}`;
+            // ★ 修复：扣除组合分摊的销量，防止重复累加
+            const comboExtra = getCombineExtraSale(r);
+            const baseVal = Math.max(0, newVal - comboExtra);
+            
+            if (baseVal === 0) delete appData.sales_dict[salesKey];
+            else appData.sales_dict[salesKey] = baseVal;
+            
+            saveStorage(); renderTable(); return;
         } else if (key === "品种") {
         let newName = val.trim();
         newName = normalizeVariety(newName);
