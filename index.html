@@ -2520,8 +2520,30 @@ function checkZeroStockAndAlert() {
 
 function calcRow(row) {
     if (!row) return {};
-    const key = `${row.品种}||${row.品相}||${row.规格||''}`;
-    const sale = Number(appData.sales_dict[key] || 0);
+    // ★ 兼容品相 "组" 和 "组合"
+    const phaseKey = (row.品相 === "组") ? "组合" : row.品相;
+    const specKey = row.规格 || '';
+    // ★ 生成所有可能的品种名变体（半角/全角 +、正反顺序）
+    const varVariants = new Set();
+    varVariants.add(row.品种);
+    varVariants.add(row.品种.replace(/\+/g, "＋"));
+    varVariants.add(row.品种.replace(/＋/g, "+"));
+    const parts = row.品种.split(/[\+\＋]/).map(s => s.trim());
+    if (parts.length === 2) {
+        varVariants.add(parts[0] + "＋" + parts[1]);
+        varVariants.add(parts[1] + "＋" + parts[0]);
+        varVariants.add(parts[0] + "+" + parts[1]);
+        varVariants.add(parts[1] + "+" + parts[0]);
+    }
+    // ★ 逐个变体尝试匹配销量
+    let sale = 0;
+    for (const vn of varVariants) {
+        const key = `${vn}||${phaseKey}||${specKey}`;
+        if (appData.sales_dict[key] !== undefined) {
+            sale = Number(appData.sales_dict[key] || 0);
+            break;
+        }
+    }
     const rawNum = Number(row.原始数量) || 0;
     const remain = rawNum - sale;
     let douyin, wechat;
