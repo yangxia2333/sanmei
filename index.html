@@ -936,7 +936,14 @@ function syncCombines() {
     try {
         const cfg = appData.autoCombineCfg.filter(c => !c.lock);
         for (const c of cfg) {
-            const exists = appData.pure_rows.some(r => r.品种 === c.name && r.品相 === "组合");
+                        // ★ 修复：强制规范名字，防止生成反向组合
+            const getCanonName = (name) => {
+                let parts = name.split(/[\+\＋]/).map(s => s.trim());
+                if (parts.length === 2) { parts.sort(); return parts[0] + "＋" + parts[1]; }
+                return name;
+            };
+            const canonC = getCanonName(c.name);
+            const exists = appData.pure_rows.some(r => r.品相 === "组合" && r._isCombine && getCanonName(r.品种) === canonC);
             if (!exists) {
                 appData.pure_rows.push({
                     品种: c.name, 品相: "组合", 原始数量: 0,
@@ -964,6 +971,11 @@ function findPureIndex(target) {
 }
 
 function deleteVariety(idx) {
+        // ★ 修复：删除品种时，连带清理自动组合配置，防止死灰复燃
+    const targetName = appData.variety_list[idx];
+    appData.autoCombineCfg = appData.autoCombineCfg.filter(c => 
+        c.name !== targetName && !c.name.includes(targetName)
+    );
     if (idx < 0 || idx >= appData.variety_list.length) return;
     const name = appData.variety_list[idx];
     const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === name);
