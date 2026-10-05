@@ -1728,11 +1728,18 @@ function processSalesLine(index) {
         phase = "组合"; spec = '';
         const row = findRowByVarietyPhase(matchedVariety, phase, '');
         if (!row) { alert(`表格中不存在组合品种“${matchedVariety}”品相“${phase}”的行，请检查`); processSalesLine(index + 1); return; }
-        const normalizedMatched = matchedVariety.replace(/\+/g, "＋");
-        appData.sales_dict[`${normalizedMatched}||${phase}||`] = qty;
+        // ★ 修复：直接抓取表格真实行的 品种 和 规格
+appData.sales_dict[`${row.品种}||${phase}||${row.规格||''}`] = qty;
         processSalesLine(index + 1); return;
     }
-    if (line.includes("少量花")) phase = "少量花";
+    // ★ 修复：优先识别“组合”，不要被“少量花”干扰
+if (line.includes("组合") || line.includes("+") || line.includes("＋")) {
+    phase = "组合"; spec = '';
+} else if (line.includes("少量花")) {
+    phase = "少量花";
+} else if (line.includes("带花")) {
+    phase = "带花";
+}
     else if (line.includes("带花")) phase = "带花";
     else {
         let tmpRows = appData.pure_rows.filter(r => r.品种 === matchedVariety && !r._isCombine);
@@ -1765,8 +1772,8 @@ function processSalesLine(index) {
     }
     if (!row) { alert(`表格中不存在品种“${matchedVariety}”品相“${phase}”的行，请检查`); processSalesLine(index + 1); return; }
     const actualSpec = row.规格 || '';
-    const normalizedMatchedVariety = matchedVariety.replace(/\+/g, "＋");
-    appData.sales_dict[`${normalizedMatchedVariety}||${phase}||${actualSpec}`] = qty;
+    // ★ 修复：统一用 row.品种 + row.规格
+appData.sales_dict[`${row.品种}||${phase}||${row.规格||''}`] = qty;
     processSalesLine(index + 1);
 }
 
