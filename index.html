@@ -2622,7 +2622,7 @@ function calcRow(row) {
         // ★ 新增：加上组合分摊的销量
     sale += getCombineExtraSale(row);
     const rawNum = Number(row.原始数量) || 0;
-    const remain = rawNum - sale;
+        let remain = rawNum - sale;
             // ★ 共享组合按有效需求比例分配，未用完份额自动退回
         if (row.品相 === "组合" && row._isCombine && row.品种 && typeof row.品种 === 'string') {
         let parts = row.品种.split(/[\+\＋]/).map(s => s.trim());
