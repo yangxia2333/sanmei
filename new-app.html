@@ -998,6 +998,22 @@ function getSalePrice(row) {
     const spec = row.规格 || '';
     const p = appData.variety_prices[varietyName];
     if (p === undefined || p === null) return null;
+
+    // 新版多品相结构
+    if (typeof p === 'object' && (p.带花 || p.少量花 || p.组合)) {
+        if (phase === "组合") {
+            return p.组合 !== undefined ? p.组合 : null;
+        }
+        const phasePrices = p[phase];
+        if (!phasePrices) return null;
+        let specKey = spec || '粗';
+        let price = phasePrices[specKey];
+        if (price === undefined) price = phasePrices['粗'];
+        if (price === undefined) price = phasePrices['细'];
+        return price !== undefined ? price : null;
+    }
+
+    // 旧版兼容逻辑
     let basePrice = null;
     if (typeof p === 'number') {
         basePrice = p;
@@ -1552,22 +1568,74 @@ function confirmBatchImportLib() {
     const text = document.getElementById("batchImportLibText").value;
     const lines = text.split("\n").map(s => s.trim()).filter(s => s.length > 0);
     if (lines.length === 0) { alert("请输入至少一个品种名"); return; }
+
     let count = 0;
-    for (const line of lines) {
-        const parts = line.split(/[，,、\s]+/).map(s => s.trim()).filter(s => s.length > 0);
-        let formal = parts[0];
-        formal = normalizeVariety(formal);
-        if (!formal) continue;
+
+    const initPriceObj = () => ({ 带花: {}, 少量花: {}, 组合: {} });
+
+    lines.forEach(line => {
+        // 1. 提取价格：末尾的制表符或空格后的数字
+        const priceMatch = line.match(/^(.*?)[\t\s]+([\d.]+)$/);
+        if (!priceMatch) return;
+        const mainText = priceMatch[1].trim();
+        const price = parseFloat(priceMatch[2]);
+        if (isNaN(price)) return;
+
+        // 2. 提取品种名：【...】
+        const varMatch = mainText.match(/【(.*?)】/);
+        if (!varMatch) return;
+        let formal = normalizeVariety(varMatch[1]);
+        if (!formal) return;
+
+        // 3. 提取品相：行首词 or 描述里的“带花/组合”
+        let phase = "";
+        const phasePrefixMatch = mainText.match(/^(不带花|少量花|带花)/);
+        if (phasePrefixMatch) {
+            phase = phasePrefixMatch[1];
+        } else if (mainText.includes("组合")) {
+            phase = "组合";
+        } else if (mainText.includes("带花")) {
+            phase = "带花";
+        } else {
+            phase = "少量花";
+        }
+        if (phase === "不带花") phase = "少量花"; // 系统里没有“不带花”，归入少量花
+
+        // 4. 提取规格：粗杆 / 细杆 / 组合
+        let spec = "";
+        if (mainText.includes("细杆")) spec = "细";
+        else if (mainText.includes("粗杆")) spec = "粗";
+        // 组合小苗没有粗/细，保持空
+
+        // 5. 确保品种存在
         if (!appData.variety_list.includes(formal)) {
             appData.variety_list.push(formal);
             count++;
         }
-        for (let i = 1; i < parts.length; i++) {
-            let alias = parts[i];
-            alias = normalizeVariety(alias);
-            if (alias) appData.alias_map[alias] = formal;
+
+        // 6. 初始化/转换价格结构
+        let p = appData.variety_prices[formal];
+        if (p === undefined || p === null) {
+            p = initPriceObj();
+        } else if (typeof p === 'number') {
+            // 旧格式：数字 → 当作“带花 粗”
+            p = { 带花: { 粗: p }, 少量花: {}, 组合: {} };
+        } else if (typeof p === 'object' && !p.带花 && !p.少量花 && !p.组合) {
+            // 旧格式：{粗,细} → 当作“带花”
+            p = { 带花: { 粗: p.粗, 细: p.细 }, 少量花: {}, 组合: {} };
         }
-    }
+
+        // 7. 写入价格
+        if (phase === "组合") {
+            p.组合 = price;
+        } else {
+            if (!p[phase]) p[phase] = {};
+            p[phase][spec || '粗'] = price;
+        }
+
+        appData.variety_prices[formal] = p;
+    });
+
     saveStorage();
     renderLibList();
     closeBatchImportLib();
@@ -2029,13 +2097,17 @@ function renderLibList() {
     appData.variety_list.forEach((v, idx) => {
         const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === v);
         const p = appData.variety_prices[v];
-        let priceDisplay = '未设置';
+                let priceDisplay = '未设置';
         if (typeof p === 'number') {
             priceDisplay = p;
         } else if (typeof p === 'object' && p !== null) {
-            const c = (p.粗 !== undefined && p.粗 !== '') ? p.粗 : '空';
-            const f = (p.细 !== undefined && p.细 !== '') ? p.细 : '空';
-            priceDisplay = `粗${c}/细${f}`;
+            if (p.带花 || p.少量花 || p.组合) {
+                priceDisplay = '已设置';
+            } else {
+                const c = (p.粗 !== undefined && p.粗 !== '') ? p.粗 : '空';
+                const f = (p.细 !== undefined && p.细 !== '') ? p.细 : '空';
+                priceDisplay = `粗${c}/细${f}`;
+            }
         }
         const div = document.createElement("div");
         div.className = "list-item";
