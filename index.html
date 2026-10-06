@@ -578,6 +578,7 @@ function sortPureRowsByCustomRule(list) {
 }
 
 function matchVariety(n) {
+    if (!n || typeof n !== 'string') return null;
     n = n.trim();
     if (!n) return null;
     if (appData.variety_list.includes(n)) return n;
@@ -973,8 +974,8 @@ function findPureIndex(target) {
 function deleteVariety(idx) {
         // ★ 修复：删除品种时，连带清理自动组合配置，防止死灰复燃
     const targetName = appData.variety_list[idx];
-    appData.autoCombineCfg = appData.autoCombineCfg.filter(c => 
-        c.name !== targetName && !c.name.includes(targetName)
+        appData.autoCombineCfg = appData.autoCombineCfg.filter(c => 
+        c && c.name && typeof c.name === 'string' && c.name !== targetName && !c.name.includes(targetName)
     );
     if (idx < 0 || idx >= appData.variety_list.length) return;
     const name = appData.variety_list[idx];
@@ -2536,9 +2537,10 @@ function checkZeroStockAndAlert() {
 
 // ★ 新增：计算某个单品种从关联组合中获得的额外销量
 function getCombineExtraSale(row) {
-    if (!row || row.品相 === "组合") return 0;
+    if (!row || row.品相 === "组合" || !row.品种 || typeof row.品种 !== 'string') return 0;
     let extraSale = 0;
     appData.autoCombineCfg.forEach(cfg => {
+                if (!cfg || !cfg.name || typeof cfg.name !== 'string') return;
         // 1. 获取该组合的销量（兼容半/全角+号、正反顺序）
         let names = [cfg.name];
         let parts = cfg.name.split(/[\+\＋]/).map(s => s.trim());
@@ -2580,7 +2582,10 @@ function getCombineExtraSale(row) {
 }
 
 function calcRow(row) {
-    if (!row) return {};
+        if (!row) return {};
+    if (!row.品种 || typeof row.品种 !== 'string') {
+        return { ...row, "销量": 0, "剩余库存": 0, "抖音": 0, "微信": 0 };
+    }
     // ★ 兼容品相 "组" 和 "组合"
     const phaseKey = (row.品相 === "组") ? "组合" : row.品相;
     const specKey = row.规格 || '';
@@ -2610,7 +2615,7 @@ function calcRow(row) {
     const rawNum = Number(row.原始数量) || 0;
     const remain = rawNum - sale;
             // ★ 共享组合按有效需求比例分配，未用完份额自动退回
-    if (row.品相 === "组合" && row._isCombine) {
+        if (row.品相 === "组合" && row._isCombine && row.品种 && typeof row.品种 === 'string') {
         let parts = row.品种.split(/[\+\＋]/).map(s => s.trim());
         if (parts.length === 2) {
             const configs = appData.autoCombineCfg.filter(c => {
