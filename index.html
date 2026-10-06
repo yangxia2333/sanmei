@@ -2541,7 +2541,8 @@ function checkZeroStockAndAlert() {
 
 // ★ 新增：计算某个单品种从关联组合中获得的额外销量
 function getCombineExtraSale(row) {
-    if (!row || row.品相 === "组合" || !row.品种 || typeof row.品种 !== 'string') return 0;
+        if (!row || row.品相 === "组合" || !row.品种 || typeof row.品种 !== 'string') return 0;
+    if (!Array.isArray(appData.autoCombineCfg)) return 0;
     let extraSale = 0;
     appData.autoCombineCfg.forEach(cfg => {
                 if (!cfg || !cfg.name || typeof cfg.name !== 'string') return;
@@ -2587,8 +2588,8 @@ function getCombineExtraSale(row) {
 
 function calcRow(row) {
         if (!row) return {};
-            // ★ 修复：全局清洗组合配置，过滤掉空对象或无名的脏数据
-    if (appData.autoCombineCfg) {
+    if (!Array.isArray(appData.autoCombineCfg)) appData.autoCombineCfg = [];
+    if (!row.品种 || typeof row.品种 !== 'string') {
         appData.autoCombineCfg = appData.autoCombineCfg.filter(c => c && c.name && typeof c.name === 'string');
     }
     if (!row.品种 || typeof row.品种 !== 'string') {
@@ -2981,6 +2982,11 @@ function exportSelectedColsToImage() {
 // ============================================================
 function renderTable() {
     try {
+            // ★ 兜底防御：确保所有数组类型的字段一定存在
+        if (!Array.isArray(appData.pure_rows)) appData.pure_rows = [];
+        if (!Array.isArray(appData.autoCombineCfg)) appData.autoCombineCfg = [];
+        if (!Array.isArray(appData.customCols)) appData.customCols = [];
+        if (!Array.isArray(appData.variety_list)) appData.variety_list = [];
         const searchWord = document.getElementById("searchInput").value.trim().toLowerCase();
         let fullList = assembleFullData().filter(r => r);
                 // ★ 过滤掉数量为0的组合行
@@ -3110,7 +3116,7 @@ function renderTable() {
         bindSalesHeaderLongPress();
     } catch (e) {
         console.error("renderTable error:", e);
-        alert("表格渲染失败，请检查数据或刷新页面");
+                alert("表格渲染失败：" + (e && e.message ? e.message : "未知错误") + "\n\n堆栈：" + (e && e.stack ? e.stack.substring(0, 500) : "无"));
     }
 }
 
