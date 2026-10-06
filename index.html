@@ -765,7 +765,7 @@ function recalculateCombines(fixedPureIdx) {
                 const canon = getCanonName(c.name);
                 if (seenNames.has(canon)) continue; // 跳过重复的组合
                 seenNames.add(canon);
-                allCombineCfg.push({ name: c.name, canonName: canon, a: parsed.a, b: parsed.b, aPhase: c.aPhase || "少量花", bPhase: c.bPhase || "少量花", lock: c.lock, _manual: false });
+                allCombineCfg.push({ name: c.name, canonName: canon, a: parsed.a, b: parsed.b, aPhase: c.aPhase || "少量花", aSpec: c.aSpec || "", bPhase: c.bPhase || "少量花", bSpec: c.bSpec || "", lock: c.lock, _manual: false });
             } else {
                 const a = matchVariety(c.a);
                 const b = matchVariety(c.b);
@@ -773,7 +773,7 @@ function recalculateCombines(fixedPureIdx) {
                     const canon = getCanonName(c.name);
                     if (seenNames.has(canon)) continue;
                     seenNames.add(canon);
-                    allCombineCfg.push({ name: c.name, canonName: canon, a, b, aPhase: c.aPhase || "少量花", bPhase: c.bPhase || "少量花", lock: c.lock, _manual: false });
+                    allCombineCfg.push({ name: c.name, canonName: canon, a, b, aPhase: c.aPhase || "少量花", aSpec: c.aSpec || "", bPhase: c.bPhase || "少量花", bSpec: c.bSpec || "", lock: c.lock, _manual: false });
                 }
             }
         }
@@ -785,7 +785,7 @@ function recalculateCombines(fixedPureIdx) {
                     const parsed = parseCombineName(name);
                     if (parsed) {
                         seenNames.add(canon);
-                        allCombineCfg.push({ name: name, canonName: canon, a: parsed.a, b: parsed.b, aPhase: "少量花", bPhase: "少量花", lock: false, _manual: true });
+                        allCombineCfg.push({ name: name, canonName: canon, a: parsed.a, b: parsed.b, aPhase: "少量花", aSpec: "", bPhase: "少量花", bSpec: "", lock: false, _manual: true });
                     }
                 }
             }
