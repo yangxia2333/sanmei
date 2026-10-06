@@ -1285,6 +1285,8 @@ function doImportBackup() {
         }
     });
     appData.pure_rows = newPure;
+            // ★ 修复：导入备份覆盖表格时，同样清空手动修改记忆
+        appData._manualCombineValues = {};
     appData.sales_dict = newSales;
     syncCombines();
     appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
@@ -1619,6 +1621,8 @@ function doParse() {
         }
         appData._dataSourceDate = new Date().toLocaleString('zh-CN', {hour12: false});
         appData.pure_rows = parsed;
+                // ★ 修复：重新解析文本时，清空组合的手动修改记忆，强制按新数据重新计算
+        appData._manualCombineValues = {};
         syncCombines();
         appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
         appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
@@ -2605,6 +2609,42 @@ function calcRow(row) {
     sale += getCombineExtraSale(row);
     const rawNum = Number(row.原始数量) || 0;
     const remain = rawNum - sale;
+        // ★ 新增：如果是组合，限制其剩余库存不能超过组成品种的实际剩余库存
+    if (row.品相 === "组合" && row._isCombine) {
+        let minChildRemain = Infinity;
+        // 找到这个组合对应的配置
+        let parts = row.品种.split(/[\+\＋]/).map(s => s.trim());
+        if (parts.length === 2) {
+            const configs = appData.autoCombineCfg.filter(c => {
+                let cparts = c.name.split(/[\+\＋]/).map(s => s.trim());
+                return cparts.length === 2 && cparts.includes(parts[0]) && cparts.includes(parts[1]);
+            });
+            if (configs.length > 0) {
+                const cfg = configs[0];
+                const phaseA = cfg.aPhase || "少量花";
+                const phaseB = cfg.bPhase || "少量花";
+                const varAName = matchVariety(cfg.a) || cfg.a;
+                const varBName = matchVariety(cfg.b) || cfg.b;
+                
+                // 遍历当前所有行，找出组成品种的实际剩余库存
+                appData.pure_rows.forEach(r => {
+                    const rName = matchVariety(r.品种) || r.品种;
+                    if (rName === varAName && r.品相 === phaseA) {
+                        const rRemain = (Number(r.原始数量)||0) - getCombineExtraSale(r) - (Number(appData.sales_dict[`${r.品种}||${r.品相}||${r.规格||''}`]) || 0);
+                        if (rRemain < minChildRemain) minChildRemain = rRemain;
+                    }
+                    if (rName === varBName && r.品相 === phaseB) {
+                        const rRemain = (Number(r.原始数量)||0) - getCombineExtraSale(r) - (Number(appData.sales_dict[`${r.品种}||${r.品相}||${r.规格||''}`]) || 0);
+                        if (rRemain < minChildRemain) minChildRemain = rRemain;
+                    }
+                });
+            }
+        }
+        // 如果算出的实际可用库存小于组合自己算出的剩余库存，就用实际可用库存
+        if (minChildRemain !== Infinity && minChildRemain < remain) {
+            remain = minChildRemain;
+        }
+    }
     let douyin, wechat;
     if (remain <= 0) { douyin = 0; wechat = 0; }
     else if (remain < 40) { douyin = Math.floor(remain / 2); wechat = remain - douyin; }
