@@ -27,6 +27,10 @@ th{background:#e9edff;user-select:none;position:relative;}
 .list-item{padding:7px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
 td input{width:100%;border:none;background:transparent;text-align:center;margin:0;padding:0;font-size:12px;outline:none;line-height:1.2;}
 td input:focus{background:#f0f7ff;}
+th .resize-handle{position:absolute;right:0;top:0;width:20px;height:100%;cursor:col-resize;background:transparent;z-index:10;touch-action:none;}
+th .resize-handle:active{background:rgba(43,101,236,0.3);}
+td .row-resize-handle{position:absolute;bottom:-2px;left:0;width:100%;height:10px;cursor:row-resize;background:transparent;z-index:10;touch-action:none;}
+td .row-resize-handle:active{background:rgba(43,101,236,0.3);}
 #tableWrap{overflow-x:auto;}
 
 tr.zebra-even td{background:#ffffff;}
@@ -232,17 +236,26 @@ td input[type="checkbox"]{width:18px;height:18px;cursor:pointer;}
 <h4>编辑品种</h4>
 <input id="editVarName" placeholder="正式品种名">
 <input id="editVarAlias" placeholder="别名逗号分隔">
-<input id="editVarPrice" type="number" step="0.1" placeholder="带花价格（元）">
+<div style="font-size:12px;color:#888;margin:6px 0 2px;">价格明细（每行一个，格式：品相|规格|价格）</div>
+<div style="font-size:11px;color:#aaa;margin-bottom:4px;">品相可填：带花 / 少量花 / 不带花 / 组合，规格可填：粗 / 细 / 粗一 / 细一 / 空</div>
+<textarea id="editVarPrices" style="min-height:150px;font-size:13px;font-family:monospace;" placeholder="带花|粗|2.5&#10;带花|细|1&#10;少量花|粗|1.5&#10;不带花|粗|3&#10;组合||1.8"></textarea>
 <div id="combinePhaseBox" style="display:none;background:#fff8e1;padding:8px;border-radius:6px;margin:6px 0;">
-<div style="font-size:12px;color:#888;margin-bottom:4px;">组合品相配置：</div>
+<div style="font-size:12px;color:#888;margin-bottom:4px;">组合品相配置（必须填才能自动计算组合数量）：</div>
+<label style="font-size:12px;">左边品种名:</label>
+<input id="editVarAName" placeholder="例如：阿达喜悦">
 <label style="font-size:12px;">左边品种的品相:</label>
 <input id="editVarAPhase" placeholder="少量花 或 带花" value="少量花">
 <label style="font-size:12px;">左边品种的规格 (可选):</label>
 <input id="editVarASpec" placeholder="粗 或 细 或 留空">
+<label style="font-size:12px;">右边品种名:</label>
+<input id="editVarBName" placeholder="例如：同安红">
 <label style="font-size:12px;">右边品种的品相:</label>
 <input id="editVarBPhase" placeholder="少量花 或 带花" value="少量花">
 <label style="font-size:12px;">右边品种的规格 (可选):</label>
 <input id="editVarBSpec" placeholder="粗 或 细 或 留空">
+</div>
+<button id="btnSubmitEditVar">保存修改</button>
+<button class="gray" id="btnCloseEditVar">关闭</button>
 </div>
 <button id="btnSubmitEditVar">保存修改</button>
 <button id="btnAddFinePrice" style="background:#f0ad4e;">增加细杆价格</button>
@@ -999,7 +1012,17 @@ function getSalePrice(row) {
     const varietyName = row.品种;
     const phase = row.品相;
     const spec = row.规格 || '';
-    const p = appData.variety_prices[varietyName];
+
+    // ★ 别名回退：如果直接查不到，尝试用 matchVariety 找正式名
+    let priceKey = varietyName;
+    let p = appData.variety_prices[priceKey];
+    if (p === undefined || p === null) {
+        const formal = matchVariety(varietyName);
+        if (formal && appData.variety_prices[formal]) {
+            priceKey = formal;
+            p = appData.variety_prices[formal];
+        }
+    }
     if (p === undefined || p === null) return null;
 
     // 新版多品相结构
@@ -1007,13 +1030,17 @@ function getSalePrice(row) {
         if (phase === "组合") {
             return p.组合 !== undefined ? p.组合 : null;
         }
-        const phasePrices = p[phase];
+        let phasePrices = p[phase];
+        // 品相回退：少量花/不带花 没有时，回退到带花（方便旧数据）
+        if (!phasePrices) {
+            if (phase === "少量花" && p.少量花) phasePrices = p.少量花;
+            else if (phase === "不带花" && p.不带花) phasePrices = p.不带花;
+        }
         if (!phasePrices) return null;
         
         let specKey = spec || '粗';
         let price = phasePrices[specKey];
-        
-        // 兼容：如果找不到“粗一”，尝试找“粗”
+        // 兼容：如果找不到"粗一"，尝试找"粗"
         if (price === undefined && specKey.endsWith('一')) {
             const baseSpec = specKey.replace('一', '');
             price = phasePrices[baseSpec];
@@ -1321,7 +1348,6 @@ function parseAnyText(text) {
                     if (mainText.includes("细杆")) spec = "细";
                     if (mainText.includes("小苗一") || mainText.includes("苗一") || mainText.includes("小苗1") || mainText.includes("苗1")) spec += "一";
 
-                    // 写入价格库
                     if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
                     let p = appData.variety_prices[formal];
                     if (p === undefined || p === null) p = { 带花: {}, 少量花: {}, 不带花: {}, 组合: {} };
@@ -1334,14 +1360,42 @@ function parseAnyText(text) {
                         p[phase][spec] = price;
                     }
                     appData.variety_prices[formal] = p;
-                    
-                    // 不生成表格行，只更新价格
+                    return; // 价格文本，不生成表格行
+                }
+            }
+        }
+
+        // 2. ★ 新增：纯属性文本（没有数量、没有价格），如：【阿达的喜悦】粗杆带花小苗
+        if (s.includes("【") && (s.includes("粗杆") || s.includes("细杆") || s.includes("小苗") || s.includes("组合"))) {
+            const varMatch = s.match(/【(.*?)】/);
+            if (varMatch) {
+                let formal = normalizeVariety(varMatch[1]);
+                if (formal) {
+                    let phase = cp || "带花";
+                    if (s.includes("不带花")) phase = "不带花";
+                    else if (s.includes("少量花")) phase = "少量花";
+                    else if (s.includes("带花")) phase = "带花";
+                    if (s.includes("组合") || formal.includes("+") || formal.includes("＋")) phase = "组合";
+
+                    let spec = "";
+                    if (s.includes("细杆")) spec = "细";
+                    else if (s.includes("粗杆")) spec = "粗";
+                    if (s.includes("小苗一") || s.includes("苗一") || s.includes("小苗1") || s.includes("苗1")) spec += "一";
+
+                    // 确保品种存在于品种库
+                    if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
+
+                    // 生成表格行，数量默认为 0
+                    out.push({
+                        品种: formal, 品相: phase, 原始数量: 0,
+                        备注: "", 下架: false, _isCombine: (phase === "组合"), _isSystemCombine: false, 规格: spec
+                    });
                     return;
                 }
             }
         }
 
-        // 2. 普通数量文本解析（例如：【橙粉公主】500、玫瑰红 300）
+        // 3. 普通数量文本解析（例如：【橙粉公主】500、玫瑰红 300）
         if (s === "少量花") { cp = "少量花"; return; }
         if (s === "带花") { cp = "带花"; return; }
         if (s === "不带花") { cp = "不带花"; return; }
@@ -2138,24 +2192,42 @@ function goPage(pageName) {
 function renderLibList() {
     const wrap = document.getElementById("libList");
     wrap.innerHTML = "";
+    
+    function formatPrice(p) {
+        if (p === undefined || p === null) return '未设置';
+        if (typeof p === 'number') return String(p);
+        if (typeof p !== 'object') return '未设置';
+        // 新版多品相结构
+        if (p.带花 || p.少量花 || p.不带花 || p.组合) {
+            const parts = [];
+            ['带花', '少量花', '不带花'].forEach(phase => {
+                if (p[phase]) {
+                    Object.keys(p[phase]).forEach(spec => {
+                        parts.push(`${phase}${spec}:${p[phase][spec]}`);
+                    });
+                }
+            });
+            if (p.组合 !== undefined) parts.push(`组合:${p.组合}`);
+            return parts.length > 0 ? parts.join(' / ') : '未设置';
+        }
+        // 旧版 {粗,细}
+        const c = (p.粗 !== undefined && p.粗 !== '') ? p.粗 : null;
+        const f = (p.细 !== undefined && p.细 !== '') ? p.细 : null;
+        if (c !== null && f !== null) return `粗${c}/细${f}`;
+        if (c !== null) return `粗${c}`;
+        if (f !== null) return `细${f}`;
+        return '未设置';
+    }
+    
     appData.variety_list.forEach((v, idx) => {
         const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === v);
         const p = appData.variety_prices[v];
-                let priceDisplay = '未设置';
-        if (typeof p === 'number') {
-            priceDisplay = p;
-        } else if (typeof p === 'object' && p !== null) {
-            if (p.带花 || p.少量花 || p.不带花 || p.组合) {
-                priceDisplay = '已设置';
-            } else {
-                const c = (p.粗 !== undefined && p.粗 !== '') ? p.粗 : '空';
-                const f = (p.细 !== undefined && p.细 !== '') ? p.细 : '空';
-                priceDisplay = `粗${c}/细${f}`;
-            }
-        }
+        const priceDisplay = formatPrice(p);
         const div = document.createElement("div");
         div.className = "list-item";
-        div.innerHTML = `<div>${v}${aliases.length?" |别名:"+aliases.join(","):""} |价格:${priceDisplay}</div>
+        div.innerHTML = `<div style="flex:1;word-break:break-all;font-size:13px;">
+            <b>${v}</b>${aliases.length?"<br>别名:"+aliases.join(","):""}<br>价格:${priceDisplay}
+        </div>
         <div>
         <button data-edit-idx="${idx}">编辑</button>
         <button data-del-idx="${idx}" style="background:#d9534f;">删除</button>
@@ -2179,17 +2251,40 @@ function openEditVariety(idx) {
     const aliases = Object.keys(appData.alias_map).filter(k => appData.alias_map[k] === name);
     document.getElementById("editVarName").value = name;
     document.getElementById("editVarAlias").value = aliases.join(",");
+
+    // 把价格结构转成"品相|规格|价格"多行文本
     const p = appData.variety_prices[name];
-    let coarsePrice = '';
-    if (typeof p === 'number') coarsePrice = p;
-    else if (typeof p === 'object' && p !== null && p.粗 !== undefined) coarsePrice = p.粗;
-    document.getElementById("editVarPrice").value = coarsePrice;
+    const lines = [];
+    if (p !== undefined && p !== null) {
+        if (typeof p === 'number') {
+            lines.push(`带花|粗|${p}`);
+        } else if (typeof p === 'object') {
+            if (p.带花 || p.少量花 || p.不带花 || p.组合) {
+                ['带花','少量花','不带花'].forEach(phase => {
+                    if (p[phase]) {
+                        Object.keys(p[phase]).forEach(spec => {
+                            lines.push(`${phase}|${spec}|${p[phase][spec]}`);
+                        });
+                    }
+                });
+                if (p.组合 !== undefined) lines.push(`组合||${p.组合}`);
+            } else {
+                if (p.粗 !== undefined) lines.push(`带花|粗|${p.粗}`);
+                if (p.细 !== undefined) lines.push(`带花|细|${p.细}`);
+            }
+        }
+    }
+    document.getElementById("editVarPrices").value = lines.join("\n");
+
     const aliasStr = aliases.join(",");
     const isCombine = name.includes("+") || name.includes("＋") || aliasStr.includes("组合");
     const phaseBox = document.getElementById("combinePhaseBox");
     if (isCombine) {
         phaseBox.style.display = 'block';
         const cfg = appData.autoCombineCfg.find(c => c.name === name);
+        const parts = name.split(/[\+\＋]/).map(s => s.trim());
+        document.getElementById("editVarAName").value = (cfg && cfg.a) ? cfg.a : (parts[0] || "");
+        document.getElementById("editVarBName").value = (cfg && cfg.b) ? cfg.b : (parts[1] || "");
         document.getElementById("editVarAPhase").value = (cfg && cfg.aPhase) ? cfg.aPhase : "少量花";
         document.getElementById("editVarASpec").value = (cfg && cfg.aSpec) ? cfg.aSpec : "";
         document.getElementById("editVarBPhase").value = (cfg && cfg.bPhase) ? cfg.bPhase : "少量花";
@@ -2207,25 +2302,34 @@ function submitEditVariety() {
     let newName = document.getElementById("editVarName").value.trim();
     newName = normalizeVariety(newName);
     const aliasStr = document.getElementById("editVarAlias").value.trim();
-    const priceVal = document.getElementById("editVarPrice").value.trim();
+    const priceText = document.getElementById("editVarPrices").value;
     if (!newName) { alert("品种名不能为空"); return; }
-    const oldPrice = appData.variety_prices[oldName];
-    let newPrice = undefined;
-    if (priceVal !== '') {
-        const cv = Number(priceVal);
-        if (isNaN(cv) || cv < 0) { alert("请输入有效价格"); return; }
-        if (typeof oldPrice === 'object' && oldPrice !== null && oldPrice.细 !== undefined) {
-            newPrice = { 粗: cv, 细: oldPrice.细 };
-        } else {
-            newPrice = cv;
+
+    // 解析价格明细文本
+    const newPrice = { 带花: {}, 少量花: {}, 不带花: {}, 组合: undefined };
+    priceText.split("\n").forEach(line => {
+        const s = line.trim();
+        if (!s) return;
+        const parts = s.split("|").map(x => x.trim());
+        if (parts.length < 3) return;
+        const phase = parts[0];
+        const spec = parts[1];
+        const val = parseFloat(parts[2]);
+        if (isNaN(val)) return;
+        if (phase === "组合") {
+            newPrice.组合 = val;
+        } else if (newPrice[phase] !== undefined) {
+            newPrice[phase][spec || '粗'] = val;
         }
-    } else {
-        if (typeof oldPrice === 'object' && oldPrice !== null) {
-            newPrice = { 细: oldPrice.细 };
-        } else {
-            newPrice = undefined;
-        }
-    }
+    });
+    // 清理空品相
+    ['带花','少量花','不带花'].forEach(ph => {
+        if (Object.keys(newPrice[ph]).length === 0) delete newPrice[ph];
+    });
+    if (newPrice.组合 === undefined) delete newPrice.组合;
+    const hasAnyPrice = Object.keys(newPrice).length > 0;
+
+    // 更新品种名和别名
     Object.keys(appData.alias_map).forEach(k => {
         if (appData.alias_map[k] === oldName) delete appData.alias_map[k];
     });
@@ -2234,22 +2338,28 @@ function submitEditVariety() {
         const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
         aliases.forEach(a => { appData.alias_map[a] = newName; });
     }
-    if (newPrice !== undefined) appData.variety_prices[newName] = newPrice;
+    // 更新价格
+    if (hasAnyPrice) appData.variety_prices[newName] = newPrice;
     else delete appData.variety_prices[newName];
 
+    // 更新组合配置
     const isCombine = newName.includes("+") || newName.includes("＋") || aliasStr.includes("组合");
     if (isCombine) {
+        const aName = document.getElementById("editVarAName").value.trim();
+        const bName = document.getElementById("editVarBName").value.trim();
         const aPhase = document.getElementById("editVarAPhase").value.trim() || "少量花";
         const aSpec = document.getElementById("editVarASpec").value.trim();
         const bPhase = document.getElementById("editVarBPhase").value.trim() || "少量花";
         const bSpec = document.getElementById("editVarBSpec").value.trim();
-        const parts = newName.split(/[\+\＋]/).map(s => s.trim());
-        if (parts.length === 2) {
-            let cfg = appData.autoCombineCfg.find(c => c.name === newName);
+        if (aName && bName) {
+            let cfg = appData.autoCombineCfg.find(c => c.name === newName || c.name === oldName);
             if (!cfg) {
-                cfg = { a: parts[0], b: parts[1], name: newName, aPhase: aPhase, aSpec: aSpec, bPhase: bPhase, bSpec: bSpec, lock: false };
+                cfg = { a: aName, b: bName, name: newName, aPhase: aPhase, aSpec: aSpec, bPhase: bPhase, bSpec: bSpec, lock: false };
                 appData.autoCombineCfg.push(cfg);
             } else {
+                cfg.name = newName;
+                cfg.a = aName;
+                cfg.b = bName;
                 cfg.aPhase = aPhase;
                 cfg.aSpec = aSpec;
                 cfg.bPhase = bPhase;
@@ -2257,6 +2367,7 @@ function submitEditVariety() {
             }
         }
     }
+
     appData.pure_rows.forEach(r => { if (r.品种 === oldName) r.品种 = newName; });
     recalculateCombines(null);
     appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
@@ -2396,7 +2507,8 @@ function renderTable() {
             const pureIdx = findPureIndex(rawRow);
             if (pureIdx !== -1 && selectedRows.has(pureIdx)) cls.push('selected-row');
             if (rawRow._updatedHighlight) cls.push('updated-row');
-            html += `<tr ${cls.length?`class="${cls.join(' ')}"`:''}>`;
+                        const rowHeight = appData.pure_rows[pureIdx]?._rowHeight || 18;
+            html += `<tr ${cls.length?`class="${cls.join(' ')}"`:''} style="height:${rowHeight}px;">`;
             const checked = (pureIdx !== -1 && selectedRows.has(pureIdx)) ? 'checked' : '';
             html += `<td style="width:40px;min-width:40px;"><input type="checkbox" class="row-checkbox" data-pureidx="${pureIdx}" ${checked}></td>`;
             dataCols.forEach((c, ci) => {
@@ -2410,6 +2522,7 @@ function renderTable() {
                 if (c === "数量" && rawRow._diffUpdated) cellCls += " cell-yellow";
                 html += `<td class="${cellCls}" data-rowindex="${ri}" data-colindex="${ci}" style="position:relative;">
                 <input data-row="${ri}" data-col="${ci}" type="${type}" value="${val}"${readonly}>
+                ${ci === 0 ? '<div class="row-resize-handle"></div>' : ''}
                 </td>`;
             });
             html += `<td><button class="move-btn" data-up="${ri}">▲</button><button class="move-btn" data-down="${ri}">▼</button></td>`;
@@ -2487,6 +2600,7 @@ function bindTableEvents() {
 }
 
 function bindResizeHandles() {
+    // 列宽拖拽
     document.querySelectorAll(".resize-handle").forEach(h => {
         h.onpointerdown = function(e) {
             e.preventDefault();
@@ -2499,12 +2613,47 @@ function bindResizeHandles() {
                 th.style.width = w + "px";
             };
             const onUp = ev => {
-                this.releasePointerCapture(ev.pointerId);
+                try { this.releasePointerCapture(ev.pointerId); } catch(err){}
                 this.removeEventListener('pointermove', onMove);
                 this.removeEventListener('pointerup', onUp);
+                this.removeEventListener('pointercancel', onUp);
             };
             this.addEventListener('pointermove', onMove);
             this.addEventListener('pointerup', onUp);
+            this.addEventListener('pointercancel', onUp);
+        };
+    });
+
+    // 行高拖拽
+    document.querySelectorAll(".row-resize-handle").forEach(h => {
+        h.onpointerdown = function(e) {
+            e.preventDefault();
+            const td = this.closest('td');
+            const tr = td ? td.closest('tr') : null;
+            if (!tr) return;
+            const cb = tr.querySelector('.row-checkbox');
+            let pureIdx = -1;
+            if (cb) pureIdx = Number(cb.dataset.pureidx);
+            const startY = e.clientY;
+            const startH = tr.offsetHeight;
+            this.setPointerCapture(e.pointerId);
+            const onMove = ev => {
+                const nh = Math.max(18, startH + (ev.clientY - startY));
+                tr.style.height = nh + "px";
+                if (pureIdx !== -1 && pureIdx < appData.pure_rows.length) {
+                    appData.pure_rows[pureIdx]._rowHeight = nh;
+                }
+            };
+            const onUp = ev => {
+                try { this.releasePointerCapture(ev.pointerId); } catch(err){}
+                this.removeEventListener('pointermove', onMove);
+                this.removeEventListener('pointerup', onUp);
+                this.removeEventListener('pointercancel', onUp);
+                saveStorage();
+            };
+            this.addEventListener('pointermove', onMove);
+            this.addEventListener('pointerup', onUp);
+            this.addEventListener('pointercancel', onUp);
         };
     });
 }
