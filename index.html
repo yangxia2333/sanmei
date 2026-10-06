@@ -858,7 +858,7 @@ function recalculateCombines(fixedPureIdx) {
                 varToCombines[v].push(c);
             }
         }
-        for (const v in varToCombines) {
+                for (const v in varToCombines) {
             const cfgs = varToCombines[v];
             if (cfgs.length === 2) {
                 const cA = cfgs[0], cB = cfgs[1];
@@ -867,11 +867,16 @@ function recalculateCombines(fixedPureIdx) {
                 const uA = (cA.a === v) ? cA.b : cA.a;
                 const uB = (cB.a === v) ? cB.b : cB.a;
                 const vPhase = (cA.a === v) ? cA.aPhase : cA.bPhase;
+                const vSpec = (cA.a === v) ? (cA.aSpec || '') : (cA.bSpec || ''); // ★ 新增规格
                 const uAPhase = (cA.a === uA) ? cA.aPhase : cA.bPhase;
+                const uASpec = (cA.a === uA) ? (cA.aSpec || '') : (cA.bSpec || ''); // ★ 新增规格
                 const uBPhase = (cB.a === uB) ? cB.aPhase : cB.bPhase;
-                const qS = Math.max(0, getStock(v, vPhase, vSpec) - getUsed(v, vPhase));
-                const qUA = Math.max(0, getStock(uA, uAPhase) - getUsed(uA, uAPhase));
-                const qUB = Math.max(0, getStock(uB, uBPhase) - getUsed(uB, uBPhase));
+                const uBSpec = (cB.a === uB) ? (cB.aSpec || '') : (cB.bSpec || ''); // ★ 新增规格
+                
+                // ★ 修改：传入 vSpec, uASpec, uBSpec
+                const qS = Math.max(0, getStock(v, vPhase, vSpec) - getUsed(v, vPhase, vSpec));
+                const qUA = Math.max(0, getStock(uA, uAPhase, uASpec) - getUsed(uA, uAPhase, uASpec));
+                const qUB = Math.max(0, getStock(uB, uBPhase, uBSpec) - getUsed(uB, uBPhase, uBSpec));
                 if (qS === 0) {
                     if (assigned[cA.name] === undefined) assigned[cA.name] = 0;
                     if (assigned[cB.name] === undefined) assigned[cB.name] = 0;
@@ -898,17 +903,18 @@ function recalculateCombines(fixedPureIdx) {
                 }
                 if (assigned[cA.name] === undefined) assigned[cA.name] = takeA;
                 if (assigned[cB.name] === undefined) assigned[cB.name] = takeB;
+                // ★ 修改：传入 vSpec, uASpec, uBSpec
                 addUsed(v, vPhase, vSpec, (assigned[cA.name] || 0) + (assigned[cB.name] || 0));
-                addUsed(uA, uAPhase, assigned[cA.name] || 0);
-                addUsed(uB, uBPhase, assigned[cB.name] || 0);
+                addUsed(uA, uAPhase, uASpec, assigned[cA.name] || 0);
+                addUsed(uB, uBPhase, uBSpec, assigned[cB.name] || 0);
                 sharedResolved.add(cA.name); sharedResolved.add(cB.name);
             }
         }
 
         for (const c of allCombineCfg) {
             if (assigned[c.name] !== undefined) continue;
-            const availA = Math.max(0, getStock(c.a, c.aPhase) - getUsed(c.a, c.aPhase));
-            const availB = Math.max(0, getStock(c.b, c.bPhase) - getUsed(c.b, c.bPhase));
+                         const availA = Math.max(0, getStock(c.a, c.aPhase, c.aSpec) - getUsed(c.a, c.aPhase, c.aSpec));
+            const availB = Math.max(0, getStock(c.b, c.bPhase, c.bSpec) - getUsed(c.b, c.bPhase, c.bSpec));
             let take;
             if (appData._manualCombineValues && appData._manualCombineValues[c.name] !== undefined) {
                 take = Math.max(0, Math.min(appData._manualCombineValues[c.name], availA, availB));
@@ -916,8 +922,8 @@ function recalculateCombines(fixedPureIdx) {
                 take = Math.max(0, availA < availB ? availA : availB);
             }
             assigned[c.name] = take;
-            addUsed(c.a, c.aPhase, take);
-            addUsed(c.b, c.bPhase, take);
+            addUsed(c.a, c.aPhase, c.aSpec, take);
+            addUsed(c.b, c.bPhase, c.bSpec, take);
         }
 
         // ★ 删除数量为 0 的组合行，更新有数量的行
