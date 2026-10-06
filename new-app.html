@@ -1856,7 +1856,7 @@ async function forcePullFromCloud() {
     if (!confirm("确定要从云端拉取最新数据吗？")) return;
     showToast('正在拉取云端数据...');
     try {
-        const { data, error } = await cloudDB.from('devices').select('data, last_sync').order('last_sync', { ascending: false }).limit(1);
+                const { data, error } = await cloudDB.from('devices').select('data, last_sync').eq('id', 'newapp_' + DEVICE_ID).limit(1);
         if (error) throw error;
         if (data && data.length > 0) {
             const cloudData = data[0].data;
@@ -1928,7 +1928,7 @@ async function loadStorage() {
         } catch(e) { console.warn('隐藏行状态读取失败'); }
     }
     try {
-        const { data, error } = await cloudDB.from('devices').select('data, last_sync').order('last_sync', { ascending: false }).limit(1);
+                const { data, error } = await cloudDB.from('devices').select('data, last_sync').eq('id', 'newapp_' + DEVICE_ID).limit(1);
         if (!error && data && data.length > 0) {
             const cloudData = data[0].data;
             const cloudTime = new Date(data[0].last_sync).getTime();
