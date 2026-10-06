@@ -2609,10 +2609,8 @@ function calcRow(row) {
     sale += getCombineExtraSale(row);
     const rawNum = Number(row.原始数量) || 0;
     const remain = rawNum - sale;
-        // ★ 新增：如果是组合，限制其剩余库存不能超过组成品种的实际剩余库存
+            // ★ 共享组合按有效需求比例分配，未用完份额自动退回
     if (row.品相 === "组合" && row._isCombine) {
-        let minChildRemain = Infinity;
-        // 找到这个组合对应的配置
         let parts = row.品种.split(/[\+\＋]/).map(s => s.trim());
         if (parts.length === 2) {
             const configs = appData.autoCombineCfg.filter(c => {
@@ -2621,28 +2619,84 @@ function calcRow(row) {
             });
             if (configs.length > 0) {
                 const cfg = configs[0];
-                const phaseA = cfg.aPhase || "少量花";
-                const phaseB = cfg.bPhase || "少量花";
                 const varAName = matchVariety(cfg.a) || cfg.a;
                 const varBName = matchVariety(cfg.b) || cfg.b;
-                
-                // 遍历当前所有行，找出组成品种的实际剩余库存
-                appData.pure_rows.forEach(r => {
-                    const rName = matchVariety(r.品种) || r.品种;
-                    if (rName === varAName && r.品相 === phaseA) {
-                        const rRemain = (Number(r.原始数量)||0) - getCombineExtraSale(r) - (Number(appData.sales_dict[`${r.品种}||${r.品相}||${r.规格||''}`]) || 0);
-                        if (rRemain < minChildRemain) minChildRemain = rRemain;
+                const phaseA = cfg.aPhase || "少量花";
+                const phaseB = cfg.bPhase || "少量花";
+
+                const getRealRemain = (varName, phase) => {
+                    let rv = 0;
+                    appData.pure_rows.forEach(r => {
+                        if ((matchVariety(r.品种)||r.品种) === varName && r.品相 === phase) {
+                            rv = (Number(r.原始数量)||0) - getCombineExtraSale(r) - (Number(appData.sales_dict[`${r.品种}||${r.品相}||${r.规格||''}`]) || 0);
+                        }
+                    });
+                    return Math.max(0, rv);
+                };
+                const getTheoRemain = (comboName) => {
+                    let theo = 0;
+                    let nparts = comboName.split(/[\+\＋]/).map(s => s.trim());
+                    appData.pure_rows.forEach(r => {
+                        let rparts = r.品种.split(/[\+\＋]/).map(s => s.trim());
+                        if (r.品相 === "组合" && r._isCombine && rparts.length === 2 && rparts.includes(nparts[0]) && rparts.includes(nparts[1])) {
+                            theo = Math.max(0, (Number(r.原始数量)||0) - (Number(appData.sales_dict[`${r.品种}||组合||`])||0));
+                        }
+                    });
+                    return theo;
+                };
+                const calcSharedLimit = (sharedVarName, sharedPhase, currentComboName) => {
+                    const realRemain = getRealRemain(sharedVarName, sharedPhase);
+                    if (realRemain <= 0) return 0;
+                    const sharedCombos = appData.autoCombineCfg.filter(c => 
+                        (matchVariety(c.a)||c.a) === sharedVarName || (matchVariety(c.b)||c.b) === sharedVarName
+                    );
+                    if (sharedCombos.length <= 1) return realRemain;
+                    // 计算每个共享组合的有效需求
+                    let demandsList = [];
+                    sharedCombos.forEach(c => {
+                        const theo = getTheoRemain(c.name);
+                        const cVarA = matchVariety(c.a) || c.a;
+                        const cVarB = matchVariety(c.b) || c.b;
+                        const cPhaseA = c.aPhase || "少量花";
+                        const cPhaseB = c.bPhase || "少量花";
+                        const cOtherVar = (cVarA === sharedVarName) ? cVarB : cVarA;
+                        const cOtherPhase = (cVarA === sharedVarName) ? cPhaseB : cPhaseA;
+                        const otherAvail = getRealRemain(cOtherVar, cOtherPhase);
+                        const effectiveDemand = Math.min(theo, otherAvail);
+                        if (effectiveDemand > 0) demandsList.push({ name: c.name, demand: effectiveDemand });
+                    });
+                    if (demandsList.length === 0) return 0;
+                    // 迭代按比例分配，未用完的退回
+                    let allocatedMap = {};
+                    let available = realRemain;
+                    let activeList = demandsList.slice();
+                    while (available > 0 && activeList.length > 0) {
+                        const totalDemand = activeList.reduce((s, item) => s + item.demand, 0);
+                        if (totalDemand <= 0) break;
+                        let nextActive = [];
+                        activeList.forEach(item => {
+                            let share = Math.floor(available * (item.demand / totalDemand));
+                            if (share > item.demand) share = item.demand;
+                            allocatedMap[item.name] = (allocatedMap[item.name] || 0) + share;
+                        });
+                        let usedNow = 0;
+                        activeList.forEach(item => { usedNow += (allocatedMap[item.name] || 0); });
+                        let remainingAvail = realRemain - usedNow;
+                        let stillNeed = activeList.filter(item => (allocatedMap[item.name] || 0) < item.demand);
+                        if (remainingAvail <= 0 || stillNeed.length === 0 || stillNeed.length === activeList.length) break;
+                        activeList = stillNeed;
+                        available = remainingAvail;
                     }
-                    if (rName === varBName && r.品相 === phaseB) {
-                        const rRemain = (Number(r.原始数量)||0) - getCombineExtraSale(r) - (Number(appData.sales_dict[`${r.品种}||${r.品相}||${r.规格||''}`]) || 0);
-                        if (rRemain < minChildRemain) minChildRemain = rRemain;
-                    }
-                });
+                    return allocatedMap[currentComboName] || 0;
+                };
+
+                const limitA = calcSharedLimit(varAName, phaseA, row.品种);
+                const limitB = calcSharedLimit(varBName, phaseB, row.品种);
+                const finalLimit = Math.min(limitA, limitB);
+                if (finalLimit !== Infinity && finalLimit < remain) {
+                    remain = Math.max(0, finalLimit);
+                }
             }
-        }
-        // 如果算出的实际可用库存小于组合自己算出的剩余库存，就用实际可用库存
-        if (minChildRemain !== Infinity && minChildRemain < remain) {
-            remain = minChildRemain;
         }
     }
     let douyin, wechat;
