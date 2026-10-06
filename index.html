@@ -836,8 +836,8 @@ function recalculateCombines(fixedPureIdx) {
         for (const name of manualNames) {
             const c = allCombineCfg.find(x => x.name === name);
             if (!c) continue;
-            const stockA = getStock(c.a, c.aPhase);
-            const stockB = getStock(c.b, c.bPhase);
+            const stockA = getStock(c.a, c.aPhase, c.aSpec);
+            const stockB = getStock(c.b, c.bPhase, c.bSpec);
             const maxTake = Math.min(stockA, stockB);
             const userVal = Number(appData._manualCombineValues[name]) || 0;
             const take = Math.min(userVal, maxTake);
@@ -846,8 +846,8 @@ function recalculateCombines(fixedPureIdx) {
                 appData._manualCombineValues[name] = take;
             }
             assigned[c.name] = take;
-            addUsed(c.a, c.aPhase, take);
-            addUsed(c.b, c.bPhase, take);
+            addUsed(c.a, c.aPhase, c.aSpec, take);
+            addUsed(c.b, c.bPhase, c.bSpec, take);
         }
 
         const sharedResolved = new Set();
@@ -869,7 +869,7 @@ function recalculateCombines(fixedPureIdx) {
                 const vPhase = (cA.a === v) ? cA.aPhase : cA.bPhase;
                 const uAPhase = (cA.a === uA) ? cA.aPhase : cA.bPhase;
                 const uBPhase = (cB.a === uB) ? cB.aPhase : cB.bPhase;
-                const qS = Math.max(0, getStock(v, vPhase) - getUsed(v, vPhase));
+                const qS = Math.max(0, getStock(v, vPhase, vSpec) - getUsed(v, vPhase));
                 const qUA = Math.max(0, getStock(uA, uAPhase) - getUsed(uA, uAPhase));
                 const qUB = Math.max(0, getStock(uB, uBPhase) - getUsed(uB, uBPhase));
                 if (qS === 0) {
@@ -898,7 +898,7 @@ function recalculateCombines(fixedPureIdx) {
                 }
                 if (assigned[cA.name] === undefined) assigned[cA.name] = takeA;
                 if (assigned[cB.name] === undefined) assigned[cB.name] = takeB;
-                addUsed(v, vPhase, (assigned[cA.name] || 0) + (assigned[cB.name] || 0));
+                addUsed(v, vPhase, vSpec, (assigned[cA.name] || 0) + (assigned[cB.name] || 0));
                 addUsed(uA, uAPhase, assigned[cA.name] || 0);
                 addUsed(uB, uBPhase, assigned[cB.name] || 0);
                 sharedResolved.add(cA.name); sharedResolved.add(cB.name);
@@ -2680,8 +2680,8 @@ function calcRow(row) {
                     });
                     return theo;
                 };
-                const calcSharedLimit = (sharedVarName, sharedPhase, currentComboName) => {
-                    const realRemain = getRealRemain(sharedVarName, sharedPhase);
+                const calcSharedLimit = (sharedVarName, sharedPhase, sharedSpec, currentComboName) => {
+                    const realRemain = getRealRemain(sharedVarName, sharedPhase, sharedSpec);
                     if (realRemain <= 0) return 0;
                                         const sharedCombos = appData.autoCombineCfg.filter(c => 
                         c && c.a && c.b && 
@@ -2698,7 +2698,8 @@ function calcRow(row) {
                         const cPhaseB = c.bPhase || "少量花";
                         const cOtherVar = (cVarA === sharedVarName) ? cVarB : cVarA;
                         const cOtherPhase = (cVarA === sharedVarName) ? cPhaseB : cPhaseA;
-                        const otherAvail = getRealRemain(cOtherVar, cOtherPhase);
+                        const cOtherSpec = (cVarA === sharedVarName) ? (c.bSpec || "") : (c.aSpec || "");
+const otherAvail = getRealRemain(cOtherVar, cOtherPhase, cOtherSpec);
                         const effectiveDemand = Math.min(theo, otherAvail);
                         if (effectiveDemand > 0) demandsList.push({ name: c.name, demand: effectiveDemand });
                     });
@@ -2727,8 +2728,8 @@ function calcRow(row) {
                     return allocatedMap[currentComboName] || 0;
                 };
 
-                const limitA = calcSharedLimit(varAName, phaseA, row.品种);
-                const limitB = calcSharedLimit(varBName, phaseB, row.品种);
+                const limitA = calcSharedLimit(varAName, phaseA, specA, row.品种);
+                const limitB = calcSharedLimit(varBName, phaseB, specB, row.品种);
                 const finalLimit = Math.min(limitA, limitB);
                 if (finalLimit !== Infinity && finalLimit < remain) {
                     remain = Math.max(0, finalLimit);
