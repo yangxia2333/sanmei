@@ -2210,6 +2210,10 @@ async function loadStorage() {
 }
 
 function applyLoadedData(d) {
+    // ★ 修复：清洗云端数据中可能存在的空组合配置
+    if (d && d.autoCombineCfg && Array.isArray(d.autoCombineCfg)) {
+        d.autoCombineCfg = d.autoCombineCfg.filter(c => c && c.name && typeof c.name === 'string');
+    }
     appData.thresholdDai = d.thresholdDai || d.stockThreshold || 30;
     appData.thresholdShao = d.thresholdShao || d.stockThreshold || 30;
     appData._dataSourceDate = d._dataSourceDate || "";
@@ -2583,6 +2587,10 @@ function getCombineExtraSale(row) {
 
 function calcRow(row) {
         if (!row) return {};
+            // ★ 修复：全局清洗组合配置，过滤掉空对象或无名的脏数据
+    if (appData.autoCombineCfg) {
+        appData.autoCombineCfg = appData.autoCombineCfg.filter(c => c && c.name && typeof c.name === 'string');
+    }
     if (!row.品种 || typeof row.品种 !== 'string') {
         return { ...row, "销量": 0, "剩余库存": 0, "抖音": 0, "微信": 0 };
     }
@@ -2618,7 +2626,8 @@ function calcRow(row) {
         if (row.品相 === "组合" && row._isCombine && row.品种 && typeof row.品种 === 'string') {
         let parts = row.品种.split(/[\+\＋]/).map(s => s.trim());
         if (parts.length === 2) {
-            const configs = appData.autoCombineCfg.filter(c => {
+                            const configs = appData.autoCombineCfg.filter(c => {
+                    if (!c || !c.name || typeof c.name !== 'string') return false;
                 let cparts = c.name.split(/[\+\＋]/).map(s => s.trim());
                 return cparts.length === 2 && cparts.includes(parts[0]) && cparts.includes(parts[1]);
             });
@@ -2638,7 +2647,8 @@ function calcRow(row) {
                     });
                     return Math.max(0, rv);
                 };
-                const getTheoRemain = (comboName) => {
+                                const getTheoRemain = (comboName) => {
+                    if (!comboName || typeof comboName !== 'string') return 0;
                     let theo = 0;
                     let nparts = comboName.split(/[\+\＋]/).map(s => s.trim());
                     appData.pure_rows.forEach(r => {
@@ -2652,7 +2662,8 @@ function calcRow(row) {
                 const calcSharedLimit = (sharedVarName, sharedPhase, currentComboName) => {
                     const realRemain = getRealRemain(sharedVarName, sharedPhase);
                     if (realRemain <= 0) return 0;
-                    const sharedCombos = appData.autoCombineCfg.filter(c => 
+                                        const sharedCombos = appData.autoCombineCfg.filter(c => 
+                        c && c.a && c.b && 
                         (matchVariety(c.a)||c.a) === sharedVarName || (matchVariety(c.b)||c.b) === sharedVarName
                     );
                     if (sharedCombos.length <= 1) return realRemain;
