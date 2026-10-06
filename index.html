@@ -3304,10 +3304,10 @@ function cellEdit(ri, ci, val) {
                 r.原始数量 = finalRow.原始数量;
                 appData._manualCombineValues[r.品种] = finalRow.原始数量;
             }
-        } else if (r.品相 === "少量花" && !r._isCombine) {
+                    } else if (!r._isCombine) {
             recalculateCombines(null);
         }
-        appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
+    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
         appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
         saveStorage(); renderTable(); return;
             } else if (key === "销量") {
@@ -3462,7 +3462,8 @@ function submitEditVariety() {
         }
     
     appData.pure_rows.forEach(r => { if (r.品种 === oldName) r.品种 = newName; });
-    recalculateCombines(null);
+                appData._manualCombineValues = {};
+            recalculateCombines(null);
     appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
     appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
     saveStorage();
