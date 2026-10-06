@@ -308,7 +308,10 @@ const cloudDB = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const DEVICE_ID = (() => {
   let id = localStorage.getItem('_new_app_device_id');
-  if (!id) { id = 'device_' + Math.random().toString(36).slice(2, 10); let id = localStorage.getItem('_new_app_device_id'); }
+  if (!id) {
+    id = 'device_' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('_new_app_device_id', id);
+  }
   return id;
 })();
 
@@ -2713,11 +2716,16 @@ function bindLongPressToButtons() {
 }
 
 async function initApp() {
-    await loadStorage();
+    // 1. 先绑定按钮，确保网络再差也能点
     bindGlobalButtons();
     applyCustomButtonNames();
     bindLongPressToButtons();
     goPage('home');
+
+    // 2. 再去加载本地/云端数据
+    await loadStorage();
+    renderTable();
+
     if (appData.pure_rows.length === 0) {
         // 静默处理
     }
