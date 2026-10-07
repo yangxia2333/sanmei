@@ -244,9 +244,6 @@ td input[type="checkbox"]{width:18px;height:18px;cursor:pointer;}
 <button class="gray" id="btnCloseEditVar">关闭</button>
 </div>
 </div>
-<button id="btnSubmitEditVar">保存修改</button>
-<button id="btnAddFinePrice" style="background:#f0ad4e;">增加细杆价格</button>
-<button class="gray" id="btnCloseEditVar">关闭</button>
 </div>
 </div>
 
@@ -318,11 +315,7 @@ const DEVICE_ID = (() => {
 const STORAGE_KEY = "new_app_store";
 const HIDDEN_KEY = "new_app_hidden_cols";
 const SNAPSHOT_KEY = "new_app_snapshots";
-const autoCombineList = [
-    { a: "橙粉公主", b: "云南紫", name: "橙粉公主＋云南紫", aPhase: "少量花", bPhase: "少量花", lock: false },
-    { a: "金心橙白", b: "云南紫", name: "金心橙白＋云南紫", aPhase: "少量花", bPhase: "少量花", lock: false },
-    { a: "娆", b: "广红樱", name: "娆＋广红樱", aPhase: "少量花", bPhase: "少量花", lock: false }
-];
+const autoCombineList = [];
 
 let appData = {
     _dataSourceDate: "",
@@ -837,6 +830,7 @@ function recalculateCombines(fixedPureIdx) {
 }
 
 function syncCombines() {
+    return; // ★ 彻底禁用自动添加组合
     try {
         if (!Array.isArray(appData.autoCombineCfg)) appData.autoCombineCfg = [];
         const cfg = appData.autoCombineCfg.filter(c => c && c.name && !c.lock);
@@ -888,7 +882,7 @@ function deleteVariety(idx) {
     aliases.forEach(a => delete appData.alias_map[a]);
     saveStorage();
     renderLibList();
-    document.getElementById('btnUndoDelete').style.display = appData.deletedStack.length ? 'inline-block' : 'none';
+            document.getElementById('btnUndoDelete').style.display = 'inline-block';
 }
 
 function undoDelete() {
@@ -898,7 +892,7 @@ function undoDelete() {
     item.aliases.forEach(a => { appData.alias_map[a] = item.name; });
     saveStorage();
     renderLibList();
-    document.getElementById('btnUndoDelete').style.display = appData.deletedStack.length ? 'inline-block' : 'none';
+            document.getElementById('btnUndoDelete').style.display = 'inline-block';
 }
 
 function pushDeleteHistory(action) {
@@ -1317,7 +1311,7 @@ function parseAnyText(text) {
                     let phase = cp || "带花";
                     if (mainText.includes("不带花")) phase = "不带花";
                     else if (mainText.includes("少量花")) phase = "少量花";
-                    else if (mainText.includes("组合") || formal.includes("+") || formal.includes("＋")) phase = "组合";
+                    else if (mainText.includes("组合")) phase = "组合";
 
                     let spec = "粗";
                     if (mainText.includes("细杆")) spec = "细";
@@ -1335,7 +1329,15 @@ function parseAnyText(text) {
                         p[phase][spec] = price;
                     }
                     appData.variety_prices[formal] = p;
-                    return; // 价格文本，不生成表格行
+                                        // ★ 修改：同时生成表格行，数量默认为 0
+                    const existRow = out.some(r => r.品种 === formal && r.品相 === phase && (r.规格||'') === spec);
+                    if (!existRow) {
+                        out.push({
+                            品种: formal, 品相: phase, 原始数量: 0,
+                            备注: "", 下架: false, _isCombine: (phase === "组合"), _isSystemCombine: false, 规格: spec
+                        });
+                    }
+                    return;
                 }
             }
         }
@@ -1350,7 +1352,7 @@ function parseAnyText(text) {
                     if (s.includes("不带花")) phase = "不带花";
                     else if (s.includes("少量花")) phase = "少量花";
                     else if (s.includes("带花")) phase = "带花";
-                    if (s.includes("组合") || formal.includes("+") || formal.includes("＋")) phase = "组合";
+                                        if (s.includes("组合")) phase = "组合";
 
                     let spec = "";
                     if (s.includes("细杆")) spec = "细";
@@ -1674,7 +1676,7 @@ function confirmBatchImportLib() {
         let phase = "带花"; // 默认
         if (mainText.includes("不带花")) phase = "不带花";
         else if (mainText.includes("少量花")) phase = "少量花";
-        else if (mainText.includes("组合") || formal.includes("+") || formal.includes("＋")) phase = "组合";
+        else if (mainText.includes("组合")) phase = "组合";
 
         // 4. 提取规格（含“一”字的兼容）
         let spec = "粗"; // 默认粗
@@ -1707,6 +1709,14 @@ function confirmBatchImportLib() {
         }
 
         appData.variety_prices[formal] = p;
+                            // ★ 新增：带价格的文本也生成表格行，数量为 0
+                    const existRow = out.some(r => r.品种 === formal && r.品相 === phase && (r.规格||'') === spec);
+                    if (!existRow) {
+                        out.push({
+                            品种: formal, 品相: phase, 原始数量: 0,
+                            备注: "", 下架: false, _isCombine: false, _isSystemCombine: false, 规格: spec
+                        });
+                    }
     });
 
     saveStorage();
@@ -2096,7 +2106,7 @@ function goPage(pageName) {
             if (appData.salesPendingLines && appData.salesPendingLines.length > 0) {
                 document.getElementById('libBackSales').style.display = 'inline-block';
             } else document.getElementById('libBackSales').style.display = 'none';
-            document.getElementById('btnUndoDelete').style.display = appData.deletedStack.length ? 'inline-block' : 'none';
+                    document.getElementById('btnUndoDelete').style.display = 'inline-block';
             document.getElementById('libSearch').oninput = filterLibList;
         }
         if (pageName === 'inputData') {
