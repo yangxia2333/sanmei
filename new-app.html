@@ -983,11 +983,22 @@ function closeExportPopup() { document.getElementById("exportPopup").classList.a
 
 function getSalePrice(row) {
     if (!row || !row.品种) return null;
-    const varietyName = row.品种;
-    const phase = row.品相;
+    let varietyName = row.品种;
+    let phase = row.品相;
     const spec = row.规格 || '';
 
-    // ★ 别名回退：如果直接查不到，尝试用 matchVariety 找正式名
+    // ★ 组合行剥离前缀
+    if (phase === "组合") {
+        const prefixes = ["少量花", "不带花", "带花"];
+        for (const p of prefixes) {
+            if (varietyName.startsWith(p)) {
+                varietyName = varietyName.substring(p.length);
+                phase = p;
+                break;
+            }
+        }
+    }
+
     let priceKey = varietyName;
     let p = appData.variety_prices[priceKey];
     if (p === undefined || p === null) {
@@ -999,22 +1010,18 @@ function getSalePrice(row) {
     }
     if (p === undefined || p === null) return null;
 
-    // 新版多品相结构
     if (typeof p === 'object' && (p.带花 || p.少量花 || p.不带花 || p.组合)) {
         if (phase === "组合") {
             return p.组合 !== undefined ? p.组合 : null;
         }
         let phasePrices = p[phase];
-        // 品相回退：少量花/不带花 没有时，回退到带花（方便旧数据）
         if (!phasePrices) {
             if (phase === "少量花" && p.少量花) phasePrices = p.少量花;
             else if (phase === "不带花" && p.不带花) phasePrices = p.不带花;
         }
         if (!phasePrices) return null;
-        
         let specKey = spec || '粗';
         let price = phasePrices[specKey];
-        // 兼容：如果找不到"粗一"，尝试找"粗"
         if (price === undefined && specKey.endsWith('一')) {
             const baseSpec = specKey.replace('一', '');
             price = phasePrices[baseSpec];
@@ -1024,18 +1031,12 @@ function getSalePrice(row) {
         return price !== undefined ? price : null;
     }
 
-    // 旧版兼容逻辑
     let basePrice = null;
-    if (typeof p === 'number') {
-        basePrice = p;
-    } else if (typeof p === 'object') {
-        if (spec === '细' && p.细 !== undefined && p.细 !== '') {
-            basePrice = p.细;
-        } else if (p.粗 !== undefined && p.粗 !== '') {
-            basePrice = p.粗;
-        } else if (p.细 !== undefined && p.细 !== '') {
-            basePrice = p.细;
-        }
+    if (typeof p === 'number') basePrice = p;
+    else if (typeof p === 'object') {
+        if (spec === '细' && p.细 !== undefined && p.细 !== '') basePrice = p.细;
+        else if (p.粗 !== undefined && p.粗 !== '') basePrice = p.粗;
+        else if (p.细 !== undefined && p.细 !== '') basePrice = p.细;
     }
     if (basePrice === null) return null;
     if (phase === "组合") return basePrice;
@@ -1303,97 +1304,110 @@ function parseAnyText(text) {
         const s = line.trim();
         if (!s) return;
 
-        // ★ 1. 优先处理价格文本（兼容带【】和无【】两种格式）
+        // 1. 价格文本（兼容带【】和不带【】）
         if (/[\t\s]+([\d.]+)$/.test(s) && (s.includes("【") || s.includes("粗") || s.includes("细") || s.includes("带花"))) {
             const priceMatch = s.match(/^(.*?)[\t\s]+([\d.]+)$/);
             if (priceMatch) {
                 let mainText = priceMatch[1].trim();
                 const price = parseFloat(priceMatch[2]);
                 let formal = "";
-                
-                // 提取品种名
                 const varMatch = mainText.match(/【(.*?)】/);
-                if (varMatch) {
-                    formal = normalizeVariety(varMatch[1]);
-                } else {
-                    // 没有方括号，用去除品相/规格/描述后的词作为品种名
+                if (varMatch) formal = normalizeVariety(varMatch[1]);
+                else {
                     let temp = mainText.replace(/(不带花|少量花|带花|粗杆|细杆|小苗一|苗一|小苗1|苗1|小苗|粗|细)/g, ' ');
                     formal = normalizeVariety(temp.trim().split(/\s+/)[0] || "");
                 }
                 if (!formal) return;
 
-                // 提取品相
+                // ★ 品相判断顺序：先不带花、再少量花、最后带花
                 let phase = cp || "带花";
                 if (mainText.includes("不带花")) phase = "不带花";
                 else if (mainText.includes("少量花")) phase = "少量花";
                 else if (mainText.includes("带花")) phase = "带花";
-                
-                // 提取规格（含“一”字）
+
                 let spec = "粗";
                 if (mainText.includes("细杆")) spec = "细";
                 if (mainText.includes("小苗一") || mainText.includes("苗一") || mainText.includes("小苗1") || mainText.includes("苗1")) spec += "一";
 
-                // 确保品种在列表中
-                if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
+                // ★ 判断是否是组合（带+号）
+                const isCombine = formal.includes("+") || formal.includes("＋");
+                let displayName = formal;
+                let rowPhase = phase;
+                let rowSpec = spec;
+                if (isCombine) {
+                    displayName = phase + formal;
+                    rowPhase = "组合";
+                    rowSpec = "";
+                }
 
-                // 写入价格
+                // 存价格（用原始品种名，品相用真实品相）
+                if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
                 let p = appData.variety_prices[formal];
                 if (p === undefined || p === null) p = { 带花: {}, 少量花: {}, 不带花: {}, 组合: {} };
                 else if (typeof p === 'number') p = { 带花: { 粗: p }, 少量花: {}, 不带花: {}, 组合: {} };
                 else if (typeof p === 'object' && !p.带花 && !p.少量花 && !p.不带花 && !p.组合) p = { 带花: { 粗: p.粗, 细: p.细 }, 少量花: {}, 不带花: {}, 组合: {} };
                 if (!p.不带花) p.不带花 = {};
-                if (phase === "组合") p.组合 = price;
+                if (isCombine) p.组合 = price;
                 else {
                     if (!p[phase]) p[phase] = {};
                     p[phase][spec] = price;
                 }
                 appData.variety_prices[formal] = p;
 
-                // ★ 同时生成表格行，数量默认为 0
-                const existRow = out.some(r => r.品种 === formal && r.品相 === phase && (r.规格||'') === spec);
+                // 生成表格行
+                const existRow = out.some(r => r.品种 === displayName && r.品相 === rowPhase);
                 if (!existRow) {
                     out.push({
-                        品种: formal, 品相: phase, 原始数量: 0,
-                        备注: "", 下架: false, _isCombine: (phase === "组合"), _isSystemCombine: false, 规格: spec
+                        品种: displayName, 品相: rowPhase, 原始数量: 0,
+                        备注: "", 下架: false, _isCombine: isCombine, _isSystemCombine: false, 规格: rowSpec
                     });
                 }
                 return;
             }
         }
 
-        // 2. 纯属性文本（没有数量、没有价格），如：【阿达的喜悦】粗杆带花小苗 或 橙九月 不带花 粗杆小苗
-        if ((s.includes("粗杆") || s.includes("细杆") || s.includes("小苗") || s.includes("带花"))) {
+        // 2. 纯属性文本
+        if (s.includes("粗杆") || s.includes("细杆") || s.includes("小苗") || s.includes("带花")) {
             let formal = "";
             const varMatch = s.match(/【(.*?)】/);
-            if (varMatch) {
-                formal = normalizeVariety(varMatch[1]);
-            } else {
+            if (varMatch) formal = normalizeVariety(varMatch[1]);
+            else {
                 let temp = s.replace(/(不带花|少量花|带花|粗杆|细杆|小苗一|苗一|小苗1|苗1|小苗|粗|细)/g, ' ');
                 formal = normalizeVariety(temp.trim().split(/\s+/)[0] || "");
             }
-            
             if (formal) {
+                // ★ 品相判断顺序
                 let phase = cp || "带花";
                 if (s.includes("不带花")) phase = "不带花";
                 else if (s.includes("少量花")) phase = "少量花";
                 else if (s.includes("带花")) phase = "带花";
-                
+
                 let spec = "";
                 if (s.includes("细杆")) spec = "细";
                 else if (s.includes("粗杆")) spec = "粗";
                 if (s.includes("小苗一") || s.includes("苗一") || s.includes("小苗1") || s.includes("苗1")) spec += "一";
 
+                const isCombine = formal.includes("+") || formal.includes("＋");
+                let displayName = formal;
+                let rowPhase = phase;
+                let rowSpec = spec;
+                if (isCombine) {
+                    displayName = phase + formal;
+                    rowPhase = "组合";
+                    rowSpec = "";
+                }
+
                 if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
 
                 out.push({
-                    品种: formal, 品相: phase, 原始数量: 0,
-                    备注: "", 下架: false, _isCombine: (phase === "组合"), _isSystemCombine: false, 规格: spec
+                    品种: displayName, 品相: rowPhase, 原始数量: 0,
+                    备注: "", 下架: false, _isCombine: isCombine, _isSystemCombine: false, 规格: rowSpec
                 });
                 return;
             }
         }
 
-        // 3. 普通数量文本解析（例如：橙粉公主 500）
+        // 3. 普通数量文本
         if (s === "少量花") { cp = "少量花"; return; }
         if (s === "带花") { cp = "带花"; return; }
         if (s === "不带花") { cp = "不带花"; return; }
@@ -1430,8 +1444,6 @@ function parseAnyText(text) {
             });
             return;
         }
-        
-        // 4. 只有名字没有数量的兜底
         let varietyName = cleanLine.replace(/无/g, "").trim();
         if (varietyName) {
             let remark = cleanLine.includes("无") ? "无" : "";
@@ -1540,28 +1552,40 @@ function processSalesLine(index) {
             if (m) { spec = m[2]; variety = m[1]; }
             const matched = matchVariety(variety);
             if (!matched) {
-                if (confirm(`品种“${variety}”不在品种库，是否现在去新建？`)) {
+                if (confirm(`品种"${variety}"不在品种库，是否现在去新建？`)) {
                     appData.salesPendingLines = lines.slice(index);
                     goPage('lib');
                     document.getElementById('libBackSales').style.display = 'inline-block';
                     return;
                 } else { processSalesLine(index + 1); return; }
             }
-            let row = null;
             if (matched.includes("+") || matched.includes("＋")) {
-                phase = "组合"; spec = '';
-                row = findRowByVarietyPhase(matched, phase, '');
-            } else {
-                if (spec) {
-                    row = findRowByVarietyPhase(matched, phase, spec);
-                    if (!row) row = findRowByVarietyPhase(matched, phase, '');
-                } else {
-                    row = findRowByVarietyPhase(matched, phase, '');
-                    if (!row) row = findRowByVarietyPhase(matched, phase, '粗');
-                    if (!row) row = findRowByVarietyPhase(matched, phase, '细');
+                phase = "组合";
+                const candidates = appData.pure_rows.filter(r => r.品相 === "组合" && (r.品种 === matched || r.品种.endsWith(matched)));
+                let row = null;
+                if (candidates.length === 1) row = candidates[0];
+                else if (candidates.length > 1) {
+                    // 优先带前缀的匹配
+                    let linePrefix = "";
+                    if (line.includes("少量花")) linePrefix = "少量花";
+                    else if (line.includes("不带花")) linePrefix = "不带花";
+                    else if (line.includes("带花")) linePrefix = "带花";
+                    row = candidates.find(r => r.品种 === linePrefix + matched) || candidates[0];
                 }
+                if (!row) { alert(`表格中不存在组合品种"${matched}"的行，请检查`); processSalesLine(index + 1); return; }
+                row.原始数量 = qty;
+                processSalesLine(index + 1); return;
             }
-            if (!row) { alert(`表格中不存在品种“${matched}”品相“${phase}”的行，请检查`); processSalesLine(index + 1); return; }
+            let row = null;
+            if (spec) {
+                row = findRowByVarietyPhase(matched, phase, spec);
+                if (!row) row = findRowByVarietyPhase(matched, phase, '');
+            } else {
+                row = findRowByVarietyPhase(matched, phase, '');
+                if (!row) row = findRowByVarietyPhase(matched, phase, '粗');
+                if (!row) row = findRowByVarietyPhase(matched, phase, '细');
+            }
+            if (!row) { alert(`表格中不存在品种"${matched}"品相"${phase}"的行，请检查`); processSalesLine(index + 1); return; }
             row.原始数量 = qty;
             processSalesLine(index + 1); return;
         } else { processSalesLine(index + 1); return; }
@@ -1586,20 +1610,44 @@ function processSalesLine(index) {
     variety = variety.replace(/\+/g, "＋");
     const matchedVariety = matchVariety(variety);
     if (!matchedVariety) {
-        if (confirm(`品种“${variety}”不在品种库，是否现在去新建？`)) {
+        if (confirm(`品种"${variety}"不在品种库，是否现在去新建？`)) {
             appData.salesPendingLines = lines.slice(index);
             goPage('lib');
             document.getElementById('libBackSales').style.display = 'inline-block';
             return;
         } else { processSalesLine(index + 1); return; }
     }
+    
+    // ★ 组合匹配
     if (matchedVariety.includes("+") || matchedVariety.includes("＋")) {
-        phase = "组合"; spec = '';
-    } else if (line.includes("少量花")) {
-        phase = "少量花";
-    } else if (line.includes("带花")) {
-        phase = "带花";
-    } else {
+        phase = "组合";
+        let linePrefix = "";
+        if (line.includes("少量花")) linePrefix = "少量花";
+        else if (line.includes("不带花")) linePrefix = "不带花";
+        else if (line.includes("带花")) linePrefix = "带花";
+        
+        let row = null;
+        if (linePrefix) {
+            row = appData.pure_rows.find(r => r.品种 === linePrefix + matchedVariety && r.品相 === "组合");
+        }
+        if (!row) {
+            const candidates = appData.pure_rows.filter(r => r.品相 === "组合" && (r.品种 === matchedVariety || r.品种.endsWith(matchedVariety)));
+            if (candidates.length === 1) row = candidates[0];
+            else if (candidates.length > 1) {
+                row = candidates.find(r => r.品种 === linePrefix + matchedVariety) || candidates[0];
+            }
+        }
+        if (!row) { alert(`表格中不存在组合品种"${matchedVariety}"的行，请检查`); processSalesLine(index + 1); return; }
+        row.原始数量 = qty;
+        processSalesLine(index + 1);
+        return;
+    }
+    
+    // ★ 品相判断顺序：先不带花、再少量花、最后带花
+    if (line.includes("不带花")) phase = "不带花";
+    else if (line.includes("少量花")) phase = "少量花";
+    else if (line.includes("带花")) phase = "带花";
+    else {
         let tmpRows = appData.pure_rows.filter(r => r.品种 === matchedVariety && !r._isCombine);
         if (spec) {
             tmpRows = tmpRows.filter(r => (r.规格||'') === spec);
@@ -1610,7 +1658,7 @@ function processSalesLine(index) {
             if (found.length === 0) found = tmpRows.filter(r => r.规格 === '细');
             tmpRows = found;
         }
-        if (tmpRows.length === 0) { alert(`表格中不存在品种“${matchedVariety}”的任何行，请先录入库存`); processSalesLine(index + 1); return; }
+        if (tmpRows.length === 0) { alert(`表格中不存在品种"${matchedVariety}"的任何行，请先录入库存`); processSalesLine(index + 1); return; }
         if (tmpRows.length === 1) { phase = tmpRows[0].品相; spec = tmpRows[0].规格 || ''; }
         else {
             const shao = tmpRows.find(r => r.品相 === "少量花");
@@ -1628,7 +1676,14 @@ function processSalesLine(index) {
         if (!row) row = findRowByVarietyPhase(matchedVariety, phase, '粗');
         if (!row) row = findRowByVarietyPhase(matchedVariety, phase, '细');
     }
-    if (!row) { alert(`表格中不存在品种“${matchedVariety}”品相“${phase}”的行，请检查`); processSalesLine(index + 1); return; }
+    // ★ 兜底：如果找不到行，且该品种只有一种品相，就用那一种
+    if (!row) {
+        const sameVariety = appData.pure_rows.filter(r => r.品种 === matchedVariety && !r._isCombine);
+        if (sameVariety.length === 1) {
+            row = sameVariety[0];
+        }
+    }
+    if (!row) { alert(`表格中不存在品种"${matchedVariety}"品相"${phase}"的行，请检查`); processSalesLine(index + 1); return; }
     row.原始数量 = qty;
     processSalesLine(index + 1);
 }
@@ -2414,7 +2469,11 @@ function calcRow(row) {
     }
     const qty = Number(row.原始数量) || 0;
     const price = getSalePrice(row);
-    const result = (price !== null && price !== undefined) ? price * qty : 0;
+    let result = 0;
+    if (price !== null && price !== undefined) {
+        // ★ 保留 1 位小数
+        result = Math.round(price * qty * 10) / 10;
+    }
     return { ...row, "卖价": price !== null ? price : "", "数量": qty, "结果": result };
 }
 
