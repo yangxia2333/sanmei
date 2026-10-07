@@ -380,11 +380,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const { createClient } = supabase;
 const cloudDB = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const DEVICE_ID = (() => {
-  let id = localStorage.getItem('_device_id');
-  if (!id) { id = 'device_' + Math.random().toString(36).slice(2, 10); localStorage.setItem('_device_id', id); }
-  return id;
-})();
+const DEVICE_ID = "old_app_main";
 
 const STORAGE_KEY = "tri_mei_store";
 const HIDDEN_KEY = "tri_mei_hidden_cols";
