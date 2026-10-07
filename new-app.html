@@ -1583,6 +1583,8 @@ function processSalesLine(index) {
         } else { processSalesLine(index + 1); return; }
     }
     
+        // ★ 统一全角/半角
+    const normName = (n) => (n || '').replace(/\+/g, '＋').trim();
     // 判断品相（按顺序：不带花 → 少量花 → 带花）
     if (line.includes("不带花")) phase = "不带花";
     else if (line.includes("少量花")) phase = "少量花";
@@ -1590,11 +1592,19 @@ function processSalesLine(index) {
     else phase = "带花"; // 默认
     
     // 查找表格中的行（尝试带前缀的名称，例如"少量花娆+广红樱"）
-    let row = null;
-    const prefix = phase; // 前缀直接用识别到的品相
-    const targetName = prefix + matchedVariety;
+        let row = null;
+    const targetName = phase + matchedVariety;
+    // 先直接匹配
     row = appData.pure_rows.find(r => r.品种 === targetName && r.品相 === phase);
     if (!row && spec) row = appData.pure_rows.find(r => r.品种 === matchedVariety && r.品相 === phase && (r.规格||'') === spec);
+    // ★ 再忽略全角/半角匹配
+    if (!row) {
+        row = appData.pure_rows.find(r => normName(r.品种) === normName(targetName) && r.品相 === phase);
+    }
+    if (!row) {
+        row = appData.pure_rows.find(r => normName(r.品种) === normName(matchedVariety) && r.品相 === phase);
+    }
+    // 最后用原有逻辑兜底
     if (!row) row = findRowByVarietyPhase(matchedVariety, phase, spec);
     if (!row) row = findRowByVarietyPhase(matchedVariety, phase, '');
     
