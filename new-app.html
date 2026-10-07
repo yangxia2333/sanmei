@@ -1890,28 +1890,27 @@ async function loadStorage() {
             appData.hidden_cols = new Set(arr);
         } catch(e) { console.warn('隐藏列状态读取失败'); }
     }
-    const hiddenRowsRaw = localStorage.getItem("tri_mei_hidden_rows");
+    const hiddenRowsRaw = localStorage.getItem("new_app_hidden_rows");
     if (hiddenRowsRaw) {
         try {
             appData._hiddenRows = new Set(JSON.parse(hiddenRowsRaw));
         } catch(e) { console.warn('隐藏行状态读取失败'); }
     }
-    try {
-                const { data, error } = await cloudDB.from('devices').select('data, last_sync').eq('id', 'newapp_' + DEVICE_ID).limit(1);
-        if (!error && data && data.length > 0) {
-            const cloudData = data[0].data;
-            const cloudTime = new Date(data[0].last_sync).getTime();
-            const localTime = appData._lastSyncTime || 0;
-            if (cloudTime > localTime) {
+    // ★ 修复：不再自动用云端覆盖本地。如果本地有数据，就只读本地。
+    if (appData.pure_rows.length === 0) {
+        try {
+            const { data, error } = await cloudDB.from('devices').select('data, last_sync').eq('id', 'newapp_' + DEVICE_ID).limit(1);
+            if (!error && data && data.length > 0) {
+                const cloudData = data[0].data;
                 applyLoadedData(cloudData);
-                appData._lastSyncTime = cloudTime;
+                appData._lastSyncTime = new Date(data[0].last_sync).getTime();
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
-                console.log('已从云端同步最新数据');
+                console.log('本地为空，已从云端拉取数据');
                 if (typeof renderTable === 'function') renderTable();
             }
+        } catch(e) {
+            console.warn('云端同步失败', e);
         }
-    } catch(e) {
-        console.warn('云端同步失败，继续使用本地数据', e);
     }
     if (Array.isArray(appData.autoCombineCfg)) {
         for (const c of appData.autoCombineCfg) {
