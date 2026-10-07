@@ -1457,8 +1457,16 @@ function parseAnyText(text) {
 function checkUnknownVarieties(rows) {
     const unknownSet = new Set();
     rows.forEach(r => {
-        const vn = r.品种;
+        let vn = r.品种;
         if (!vn) return;
+        // ★ 剥离前缀，比如 "少量花漳红樱" 变成 "漳红樱"
+        const prefixes = ["少量花", "不带花", "带花"];
+        for (const p of prefixes) {
+            if (vn.startsWith(p)) {
+                vn = vn.substring(p.length);
+                break;
+            }
+        }
         const m = matchVariety(vn);
         if (m === null) unknownSet.add(vn);
     });
@@ -2159,9 +2167,17 @@ function goPage(pageName) {
         if (pageName === 'table') {
             renderTable();
             let noPriceItems = [];
-            appData.pure_rows.forEach(r => {
+                        appData.pure_rows.forEach(r => {
                 if (!r || !r.品种) return;
-                const vn = r.品种;
+                let vn = r.品种;
+                // ★ 剥离前缀
+                const prefixes = ["少量花", "不带花", "带花"];
+                for (const p of prefixes) {
+                    if (vn.startsWith(p)) {
+                        vn = vn.substring(p.length);
+                        break;
+                    }
+                }
                 if (appData.variety_prices[vn] === undefined && !noPriceItems.includes(vn)) {
                     noPriceItems.push(vn);
                 }
