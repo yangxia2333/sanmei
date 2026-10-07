@@ -1604,8 +1604,13 @@ function processSalesLine(index) {
     const m = variety.match(/^(.*?)(粗|细)$/);
     if (m) { spec = m[2]; variety = m[1]; }
     if (!spec) {
-        if (/粗杆|粗苗|粗枝|粗的/.test(line)) spec = '粗';
-        else if (/细杆|细苗|细枝|细的/.test(line)) spec = '细';
+            if (/粗杆|粗苗|粗枝|粗的/.test(line)) spec = '粗';
+    else if (/细杆|细苗|细枝|细的/.test(line)) spec = '细';
+    // ★ 识别"小苗一"、"苗一"
+    if (line.includes("小苗一") || line.includes("苗一") || line.includes("小苗1") || line.includes("苗1")) {
+        if (!spec) spec = '粗';
+        spec += '一';
+    }
     }
     variety = variety.replace(/\+/g, "＋");
     const matchedVariety = matchVariety(variety);
@@ -1619,28 +1624,30 @@ function processSalesLine(index) {
     }
     
     // ★ 组合匹配
-    if (matchedVariety.includes("+") || matchedVariety.includes("＋")) {
+        if (matchedVariety.includes("+") || matchedVariety.includes("＋")) {
         phase = "组合";
         let linePrefix = "";
         if (line.includes("少量花")) linePrefix = "少量花";
         else if (line.includes("不带花")) linePrefix = "不带花";
         else if (line.includes("带花")) linePrefix = "带花";
         
+        // ★ 优先匹配带前缀的品种名
         let row = null;
         if (linePrefix) {
             row = appData.pure_rows.find(r => r.品种 === linePrefix + matchedVariety && r.品相 === "组合");
         }
+        // 再匹配原名
         if (!row) {
-            const candidates = appData.pure_rows.filter(r => r.品相 === "组合" && (r.品种 === matchedVariety || r.品种.endsWith(matchedVariety)));
-            if (candidates.length === 1) row = candidates[0];
-            else if (candidates.length > 1) {
-                row = candidates.find(r => r.品种 === linePrefix + matchedVariety) || candidates[0];
-            }
+            row = appData.pure_rows.find(r => r.品种 === matchedVariety && r.品相 === "组合");
+        }
+        // 最后匹配任何以这个名字结尾的组合
+        if (!row) {
+            const candidates = appData.pure_rows.filter(r => r.品相 === "组合" && r.品种.endsWith(matchedVariety));
+            if (candidates.length > 0) row = candidates[0];
         }
         if (!row) { alert(`表格中不存在组合品种"${matchedVariety}"的行，请检查`); processSalesLine(index + 1); return; }
         row.原始数量 = qty;
-        processSalesLine(index + 1);
-        return;
+        processSalesLine(index + 1); return;
     }
     
     // ★ 品相判断顺序：先不带花、再少量花、最后带花
@@ -2198,7 +2205,6 @@ function goPage(pageName) {
         if (pageName === 'divPage') document.getElementById('divInput').value = appData.divisor;
         if (pageName === 'snapshotPage') renderSnapshotList();
         if (pageName === 'salesPage') {
-            document.getElementById('salesText').value = '';
             if (appData.salesPendingLines && appData.salesPendingLines.length > 0) {
                 if (confirm('检测到未完成的数量导入，是否继续？')) {
                     continueSalesImport();
