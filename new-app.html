@@ -886,13 +886,20 @@ function deleteVariety(idx) {
 }
 
 function undoDelete() {
-    if (appData.deletedStack.length === 0) return;
+    if (appData.deletedStack.length === 0) {
+        document.getElementById('btnUndoDelete').style.display = 'none';
+        return;
+    }
     const item = appData.deletedStack.pop();
     if (!appData.variety_list.includes(item.name)) appData.variety_list.push(item.name);
     item.aliases.forEach(a => { appData.alias_map[a] = item.name; });
     saveStorage();
     renderLibList();
-            document.getElementById('btnUndoDelete').style.display = 'inline-block';
+    
+    // 如果撤回完了，就隐藏按钮
+    if (appData.deletedStack.length === 0) {
+        document.getElementById('btnUndoDelete').style.display = 'none';
+    }
 }
 
 function pushDeleteHistory(action) {
@@ -1311,7 +1318,6 @@ function parseAnyText(text) {
                     let phase = cp || "带花";
                     if (mainText.includes("不带花")) phase = "不带花";
                     else if (mainText.includes("少量花")) phase = "少量花";
-                    else if (mainText.includes("组合")) phase = "组合";
 
                     let spec = "粗";
                     if (mainText.includes("细杆")) spec = "细";
@@ -1352,7 +1358,6 @@ function parseAnyText(text) {
                     if (s.includes("不带花")) phase = "不带花";
                     else if (s.includes("少量花")) phase = "少量花";
                     else if (s.includes("带花")) phase = "带花";
-                                        if (s.includes("组合")) phase = "组合";
 
                     let spec = "";
                     if (s.includes("细杆")) spec = "细";
@@ -1676,7 +1681,6 @@ function confirmBatchImportLib() {
         let phase = "带花"; // 默认
         if (mainText.includes("不带花")) phase = "不带花";
         else if (mainText.includes("少量花")) phase = "少量花";
-        else if (mainText.includes("组合")) phase = "组合";
 
         // 4. 提取规格（含“一”字的兼容）
         let spec = "粗"; // 默认粗
@@ -2106,7 +2110,11 @@ function goPage(pageName) {
             if (appData.salesPendingLines && appData.salesPendingLines.length > 0) {
                 document.getElementById('libBackSales').style.display = 'inline-block';
             } else document.getElementById('libBackSales').style.display = 'none';
-                    document.getElementById('btnUndoDelete').style.display = 'inline-block';
+                       if (appData.deletedStack.length > 0) {
+                document.getElementById('btnUndoDelete').style.display = 'inline-block';
+            } else {
+                document.getElementById('btnUndoDelete').style.display = 'none';
+            }
             document.getElementById('libSearch').oninput = filterLibList;
         }
         if (pageName === 'inputData') {
