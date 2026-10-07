@@ -237,10 +237,12 @@ td input[type="checkbox"]{width:18px;height:18px;cursor:pointer;}
 <input id="editVarName" placeholder="正式品种名">
 <input id="editVarAlias" placeholder="别名逗号分隔">
 <div style="font-size:12px;color:#888;margin:6px 0 2px;">价格明细（每行一个，格式：品相|规格|价格）</div>
-<div style="font-size:11px;color:#aaa;margin-bottom:4px;">品相可填：带花 / 少量花 / 不带花 / 组合，规格可填：粗 / 细 / 粗一 / 细一 / 空</div>
-<textarea id="editVarPrices" style="min-height:150px;font-size:13px;font-family:monospace;" placeholder="带花|粗|2.5&#10;带花|细|1&#10;少量花|粗|1.5&#10;不带花|粗|3&#10;组合||1.8"></textarea>
+<div style="font-size:11px;color:#aaa;margin-bottom:4px;">品相：带花 / 少量花 / 不带花 / 组合；规格：粗 / 细 / 粗一 / 细一 / 空</div>
+<textarea id="editVarPrices" style="min-height:150px;font-size:13px;font-family:monospace;" placeholder="带花|粗|2.5&#10;少量花|粗|1.5&#10;组合||1.8"></textarea>
 <button id="btnSubmitEditVar">保存修改</button>
+<button id="btnAddFinePrice" style="background:#f0ad4e;">增加细杆价格</button>
 <button class="gray" id="btnCloseEditVar">关闭</button>
+</div>
 </div>
 <button id="btnSubmitEditVar">保存修改</button>
 <button id="btnAddFinePrice" style="background:#f0ad4e;">增加细杆价格</button>
@@ -622,7 +624,9 @@ function findRowByVarietyPhaseIgnoreSpec(variety, phase) {
 // 组合库存重算
 // ============================================================
 function recalculateCombines(fixedPureIdx) {
+    return; // ★ 彻底禁用自动计算，完全由手动输入决定
     try {
+        // ... 后面原有代码全部保留，但永远不会执行 ...
         if (!Array.isArray(appData.autoCombineCfg)) appData.autoCombineCfg = [];
         const cfg = appData.autoCombineCfg.filter(c => c && c.name && !c.lock);
         function getCanonName(name) {
@@ -2245,7 +2249,7 @@ function openEditVariety(idx) {
                 if (p.组合 !== undefined && p.组合 !== 0 && p.组合 !== null) {
                     let combVal = p.组合;
                     if (typeof combVal === 'object') combVal = combVal.粗 || combVal.细 || 0;
-                    lines.push(`组合||${combVal}`);
+                    if (combVal !== 0) lines.push(`组合||${combVal}`);
                 }
             } else {
                 if (p.粗 !== undefined) lines.push(`带花|粗|${p.粗}`);
@@ -2254,7 +2258,6 @@ function openEditVariety(idx) {
         }
     }
     document.getElementById("editVarPrices").value = lines.join("\n");
-
     document.getElementById("editVarPopup").classList.remove("hide");
 }
 
@@ -2268,7 +2271,7 @@ function submitEditVariety() {
     const priceText = document.getElementById("editVarPrices").value;
     if (!newName) { alert("品种名不能为空"); return; }
 
-    // 解析价格明细文本
+    // 解析价格明细
     const newPrice = { 带花: {}, 少量花: {}, 不带花: {}, 组合: undefined };
     priceText.split("\n").forEach(line => {
         const s = line.trim();
@@ -2279,13 +2282,9 @@ function submitEditVariety() {
         const spec = parts[1];
         const val = parseFloat(parts[2]);
         if (isNaN(val)) return;
-        if (phase === "组合") {
-            newPrice.组合 = val;
-        } else if (newPrice[phase] !== undefined) {
-            newPrice[phase][spec || '粗'] = val;
-        }
+        if (phase === "组合") newPrice.组合 = val;
+        else if (newPrice[phase] !== undefined) newPrice[phase][spec || '粗'] = val;
     });
-    // 清理空品相
     ['带花','少量花','不带花'].forEach(ph => {
         if (Object.keys(newPrice[ph]).length === 0) delete newPrice[ph];
     });
@@ -2301,14 +2300,10 @@ function submitEditVariety() {
         const aliases = aliasStr.split(/[，,、\s]+/).map(s => normalizeVariety(s.trim())).filter(s => s.length > 0);
         aliases.forEach(a => { appData.alias_map[a] = newName; });
     }
-    // 更新价格
     if (hasAnyPrice) appData.variety_prices[newName] = newPrice;
     else delete appData.variety_prices[newName];
 
     appData.pure_rows.forEach(r => { if (r.品种 === oldName) r.品种 = newName; });
-    recalculateCombines(null);
-    appData.pure_rows = sortPureRowsByCustomRule(appData.pure_rows);
-    appData.original_pure_rows = JSON.parse(JSON.stringify(appData.pure_rows));
     saveStorage();
     closeEditVarPopup();
     renderLibList();
