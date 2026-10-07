@@ -236,9 +236,9 @@ td input[type="checkbox"]{width:18px;height:18px;cursor:pointer;}
 <h4>编辑品种</h4>
 <input id="editVarName" placeholder="正式品种名">
 <input id="editVarAlias" placeholder="别名逗号分隔">
-<div style="font-size:12px;color:#888;margin:6px 0 2px;">价格明细（每行一个，格式：品相|规格|价格）</div>
+<div style="font-size:12px;color:#888;margin:6px 0 2px;">价格明细（每行一个，格式：品相/规格/价格）</div>
 <div style="font-size:11px;color:#aaa;margin-bottom:4px;">品相：带花 / 少量花 / 不带花 / 组合；规格：粗 / 细 / 粗一 / 细一 / 空</div>
-<textarea id="editVarPrices" style="min-height:150px;font-size:13px;font-family:monospace;" placeholder="带花|粗|2.5&#10;少量花|粗|1.5&#10;组合||1.8"></textarea>
+<textarea id="editVarPrices" style="min-height:150px;font-size:13px;font-family:monospace;" placeholder="带花/粗/2.5&#10;少量花/粗/1.5&#10;组合//1.8"></textarea>
 <button id="btnSubmitEditVar">保存修改</button>
 <button id="btnAddFinePrice" style="background:#f0ad4e;">增加细杆价格</button>
 <button class="gray" id="btnCloseEditVar">关闭</button>
@@ -1639,7 +1639,6 @@ function continueSalesImport() {
 }
 
 function clearSalesInput() {
-    document.getElementById('salesText').value = '';
     if (!confirm("确定要把表格中所有行的数量清零吗？")) return;
     appData.pure_rows.forEach(r => { r.原始数量 = 0; });
     recalculateCombines(null);
@@ -1939,12 +1938,6 @@ function filterLibList() {
         item.style.display = match ? '' : 'none';
         if (match) found = true;
     });
-    if (!found) {
-        if (confirm(`未搜索到“${keyword}”，是否新建该品种？`)) {
-            document.getElementById("newVarName").value = keyword;
-            document.getElementById("newVarName").focus();
-        }
-    }
 }
 
 async function forcePullFromCloud() {
@@ -2277,15 +2270,15 @@ function openEditVariety(idx) {
             if (p.带花 || p.少量花 || p.不带花 || p.组合) {
                 ['带花','少量花','不带花'].forEach(phase => {
                     if (p[phase]) {
-                        Object.keys(p[phase]).forEach(spec => {
-                            lines.push(`${phase}|${spec}|${p[phase][spec]}`);
+                            Object.keys(p[phase]).forEach(spec => {
+                            lines.push(`${phase}/${spec}/${p[phase][spec]}`);
                         });
                     }
                 });
                 if (p.组合 !== undefined && p.组合 !== 0 && p.组合 !== null) {
                     let combVal = p.组合;
                     if (typeof combVal === 'object') combVal = combVal.粗 || combVal.细 || 0;
-                    if (combVal !== 0) lines.push(`组合||${combVal}`);
+                    if (combVal !== 0) lines.push(`组合//${combVal}`);
                 }
             } else {
                 if (p.粗 !== undefined) lines.push(`带花|粗|${p.粗}`);
@@ -2312,7 +2305,7 @@ function submitEditVariety() {
     priceText.split("\n").forEach(line => {
         const s = line.trim();
         if (!s) return;
-        const parts = s.split("|").map(x => x.trim());
+        const parts = s.split("/").map(x => x.trim());
         if (parts.length < 3) return;
         const phase = parts[0];
         const spec = parts[1];
