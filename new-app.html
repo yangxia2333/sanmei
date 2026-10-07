@@ -1305,79 +1305,97 @@ function parseAnyText(text) {
         const s = line.trim();
         if (!s) return;
 
-        // 1. 优先处理价格文本：【品种名】+描述+价格
-        if (s.includes("【") && /[\t\s]+([\d.]+)$/.test(s)) {
+        // ★ 1. 优先处理价格文本（兼容带【】和无【】两种格式）
+        if (/[\t\s]+([\d.]+)$/.test(s) && (s.includes("【") || s.includes("粗") || s.includes("细") || s.includes("带花"))) {
             const priceMatch = s.match(/^(.*?)[\t\s]+([\d.]+)$/);
             if (priceMatch) {
-                const mainText = priceMatch[1].trim();
+                let mainText = priceMatch[1].trim();
                 const price = parseFloat(priceMatch[2]);
-                const varMatch = mainText.match(/【(.*?)】/);
+                let formal = "";
                 
-                if (varMatch && !isNaN(price)) {
-                    const formal = normalizeVariety(varMatch[1]);
-                    let phase = cp || "带花";
-                    if (mainText.includes("不带花")) phase = "不带花";
-                    else if (mainText.includes("少量花")) phase = "少量花";
-
-                    let spec = "粗";
-                    if (mainText.includes("细杆")) spec = "细";
-                    if (mainText.includes("小苗一") || mainText.includes("苗一") || mainText.includes("小苗1") || mainText.includes("苗1")) spec += "一";
-
-                    if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
-                    let p = appData.variety_prices[formal];
-                    if (p === undefined || p === null) p = { 带花: {}, 少量花: {}, 不带花: {}, 组合: {} };
-                    else if (typeof p === 'number') p = { 带花: { 粗: p }, 少量花: {}, 不带花: {}, 组合: {} };
-                    else if (typeof p === 'object' && !p.带花 && !p.少量花 && !p.不带花 && !p.组合) p = { 带花: { 粗: p.粗, 细: p.细 }, 少量花: {}, 不带花: {}, 组合: {} };
-                    if (!p.不带花) p.不带花 = {};
-                    if (phase === "组合") p.组合 = price;
-                    else {
-                        if (!p[phase]) p[phase] = {};
-                        p[phase][spec] = price;
-                    }
-                    appData.variety_prices[formal] = p;
-                                        // ★ 修改：同时生成表格行，数量默认为 0
-                    const existRow = out.some(r => r.品种 === formal && r.品相 === phase && (r.规格||'') === spec);
-                    if (!existRow) {
-                        out.push({
-                            品种: formal, 品相: phase, 原始数量: 0,
-                            备注: "", 下架: false, _isCombine: (phase === "组合"), _isSystemCombine: false, 规格: spec
-                        });
-                    }
-                    return;
+                // 提取品种名
+                const varMatch = mainText.match(/【(.*?)】/);
+                if (varMatch) {
+                    formal = normalizeVariety(varMatch[1]);
+                } else {
+                    // 没有方括号，用去除品相/规格/描述后的词作为品种名
+                    let temp = mainText.replace(/(不带花|少量花|带花|粗杆|细杆|小苗一|苗一|小苗1|苗1|小苗|粗|细)/g, ' ');
+                    formal = normalizeVariety(temp.trim().split(/\s+/)[0] || "");
                 }
-            }
-        }
+                if (!formal) return;
 
-        // 2. ★ 新增：纯属性文本（没有数量、没有价格），如：【阿达的喜悦】粗杆带花小苗
-        if (s.includes("【") && (s.includes("粗杆") || s.includes("细杆") || s.includes("小苗") || s.includes("组合"))) {
-            const varMatch = s.match(/【(.*?)】/);
-            if (varMatch) {
-                let formal = normalizeVariety(varMatch[1]);
-                if (formal) {
-                    let phase = cp || "带花";
-                    if (s.includes("不带花")) phase = "不带花";
-                    else if (s.includes("少量花")) phase = "少量花";
-                    else if (s.includes("带花")) phase = "带花";
+                // 提取品相
+                let phase = cp || "带花";
+                if (mainText.includes("不带花")) phase = "不带花";
+                else if (mainText.includes("少量花")) phase = "少量花";
+                else if (mainText.includes("带花")) phase = "带花";
+                
+                // 提取规格（含“一”字）
+                let spec = "粗";
+                if (mainText.includes("细杆")) spec = "细";
+                if (mainText.includes("小苗一") || mainText.includes("苗一") || mainText.includes("小苗1") || mainText.includes("苗1")) spec += "一";
 
-                    let spec = "";
-                    if (s.includes("细杆")) spec = "细";
-                    else if (s.includes("粗杆")) spec = "粗";
-                    if (s.includes("小苗一") || s.includes("苗一") || s.includes("小苗1") || s.includes("苗1")) spec += "一";
+                // 确保品种在列表中
+                if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
 
-                    // 确保品种存在于品种库
-                    if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
+                // 写入价格
+                let p = appData.variety_prices[formal];
+                if (p === undefined || p === null) p = { 带花: {}, 少量花: {}, 不带花: {}, 组合: {} };
+                else if (typeof p === 'number') p = { 带花: { 粗: p }, 少量花: {}, 不带花: {}, 组合: {} };
+                else if (typeof p === 'object' && !p.带花 && !p.少量花 && !p.不带花 && !p.组合) p = { 带花: { 粗: p.粗, 细: p.细 }, 少量花: {}, 不带花: {}, 组合: {} };
+                if (!p.不带花) p.不带花 = {};
+                if (phase === "组合") p.组合 = price;
+                else {
+                    if (!p[phase]) p[phase] = {};
+                    p[phase][spec] = price;
+                }
+                appData.variety_prices[formal] = p;
 
-                    // 生成表格行，数量默认为 0
+                // ★ 同时生成表格行，数量默认为 0
+                const existRow = out.some(r => r.品种 === formal && r.品相 === phase && (r.规格||'') === spec);
+                if (!existRow) {
                     out.push({
                         品种: formal, 品相: phase, 原始数量: 0,
                         备注: "", 下架: false, _isCombine: (phase === "组合"), _isSystemCombine: false, 规格: spec
                     });
-                    return;
                 }
+                return;
             }
         }
 
-        // 3. 普通数量文本解析（例如：【橙粉公主】500、玫瑰红 300）
+        // 2. 纯属性文本（没有数量、没有价格），如：【阿达的喜悦】粗杆带花小苗 或 橙九月 不带花 粗杆小苗
+        if ((s.includes("粗杆") || s.includes("细杆") || s.includes("小苗") || s.includes("带花"))) {
+            let formal = "";
+            const varMatch = s.match(/【(.*?)】/);
+            if (varMatch) {
+                formal = normalizeVariety(varMatch[1]);
+            } else {
+                let temp = s.replace(/(不带花|少量花|带花|粗杆|细杆|小苗一|苗一|小苗1|苗1|小苗|粗|细)/g, ' ');
+                formal = normalizeVariety(temp.trim().split(/\s+/)[0] || "");
+            }
+            
+            if (formal) {
+                let phase = cp || "带花";
+                if (s.includes("不带花")) phase = "不带花";
+                else if (s.includes("少量花")) phase = "少量花";
+                else if (s.includes("带花")) phase = "带花";
+                
+                let spec = "";
+                if (s.includes("细杆")) spec = "细";
+                else if (s.includes("粗杆")) spec = "粗";
+                if (s.includes("小苗一") || s.includes("苗一") || s.includes("小苗1") || s.includes("苗1")) spec += "一";
+
+                if (!appData.variety_list.includes(formal)) appData.variety_list.push(formal);
+
+                out.push({
+                    品种: formal, 品相: phase, 原始数量: 0,
+                    备注: "", 下架: false, _isCombine: (phase === "组合"), _isSystemCombine: false, 规格: spec
+                });
+                return;
+            }
+        }
+
+        // 3. 普通数量文本解析（例如：橙粉公主 500）
         if (s === "少量花") { cp = "少量花"; return; }
         if (s === "带花") { cp = "带花"; return; }
         if (s === "不带花") { cp = "不带花"; return; }
@@ -1414,6 +1432,8 @@ function parseAnyText(text) {
             });
             return;
         }
+        
+        // 4. 只有名字没有数量的兜底
         let varietyName = cleanLine.replace(/无/g, "").trim();
         if (varietyName) {
             let remark = cleanLine.includes("无") ? "无" : "";
