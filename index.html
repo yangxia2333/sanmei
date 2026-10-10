@@ -63,6 +63,7 @@ tr.removed-row td{background:#ff0000 !important;}
 tr.removed-row{text-decoration:line-through;color:#ffffff;}
 tr.removed-row td input{color:#ffffff;}
 td.col-selected{background:#d4e6ff !important;}
+tr.summary-row td{background:#f8f9fa !important;font-weight:bold;border-top:2px solid #2b65ec;}
 
 .export-textarea{width:100%;min-height:200px;border:1px solid #ccc;padding:8px;border-radius:6px;font-size:12px;white-space:pre;}
 .stat-panel{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;}
@@ -3124,6 +3125,21 @@ function renderTable() {
             html += `</tr>`;
         });
         html += `</tbody></table>`;
+                // ★ 计算销量合计
+        let totalSales = 0;
+        rows.forEach(r => { totalSales += Number(r["销量"]) || 0; });
+        html += `<tr class="summary-row">`;
+        html += `<td></td>`;
+        dataCols.forEach(c => {
+            if (c === "销量") {
+                html += `<td style="color:#e74c3c;font-weight:bold;">${totalSales}</td>`;
+            } else {
+                html += `<td></td>`;
+            }
+        });
+        html += `<td></td>`;
+        html += `</tr>`;
+
         document.getElementById("tableWrap").innerHTML = html;
         document.querySelectorAll('.col-select-check').forEach(cb => {
             cb.addEventListener('change', function() {
