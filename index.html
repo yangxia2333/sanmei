@@ -2928,6 +2928,15 @@ function exportSelectedColsToImage() {
         if (th.hasAttribute('data-col-index')) dataColIndices.push(i);
     }
     const keepIndices = dataColIndices.filter(idx => selected.has(parseInt(allTh[idx].getAttribute('data-col-index'), 10)));
+        // ★ 强制保留"销量"列，不管用户有没有勾选
+    const salesDataIdx = baseColsName.indexOf("销量");
+    if (salesDataIdx !== -1) {
+        const salesThIdx = salesDataIdx + 1;
+        if (!keepIndices.includes(salesThIdx)) {
+            keepIndices.push(salesThIdx);
+            keepIndices.sort((a, b) => a - b);
+        }
+    }
     if (keepIndices.length === 0) { alert('未选中任何有效列'); return; }
     const cloneTable = originalTable.cloneNode(true);
         // ★ 修复：导出时确保合计行存在
@@ -3127,14 +3136,14 @@ function renderTable() {
             html += `<td><button class="move-btn" data-up="${ri}">▲</button><button class="move-btn" data-down="${ri}">▼</button></td>`;
             html += `</tr>`;
         });
-        html += `</tbody></table>`;
-                // ★ 计算销量合计
-                let totalSales = 0;
+                html += `</tbody>`;
+        // ★ 计算销量合计（全表，不受筛选影响）
+        let totalSales = 0;
         appData.pure_rows.forEach(r => {
             const calc = calcRow(r);
             totalSales += Number(calc["销量"]) || 0;
         });
-                html += `<tr class="summary-row">`;
+        html += `<tr class="summary-row">`;
         html += `<td></td>`;
         dataCols.forEach((c, ci) => {
             const hide = appData.hidden_cols.has(ci) ? "style='display:none'" : "";
@@ -3146,6 +3155,7 @@ function renderTable() {
         });
         html += `<td></td>`;
         html += `</tr>`;
+        html += `</table>`;
 
         document.getElementById("tableWrap").innerHTML = html;
         document.querySelectorAll('.col-select-check').forEach(cb => {
