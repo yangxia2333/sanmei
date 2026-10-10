@@ -3143,16 +3143,14 @@ function renderTable() {
             const calc = calcRow(r);
             totalSales += Number(calc["销量"]) || 0;
         });
-        html += `<tr class="summary-row">`;
-        html += `<td></td>`;
                 html += `<tr class="summary-row">`;
         html += `<td style="border:none;"></td>`;
         dataCols.forEach((c, ci) => {
-            if (appData.hidden_cols.has(ci)) return;   // ★ 隐藏列直接跳过，不生成格子
+            const hide = appData.hidden_cols.has(ci) ? "style='display:none'" : "";
             if (c === "销量") {
-                html += `<td style="border:none;color:#e74c3c;font-weight:bold;text-align:center;">${totalSales}</td>`;
+                html += `<td ${hide} style="border:none;color:#e74c3c;font-weight:bold;text-align:center;">${totalSales}</td>`;
             } else {
-                html += `<td style="border:none;"></td>`;
+                html += `<td ${hide} style="border:none;"></td>`;
             }
         });
         html += `<td style="border:none;"></td>`;
