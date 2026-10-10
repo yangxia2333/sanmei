@@ -63,7 +63,7 @@ tr.removed-row td{background:#ff0000 !important;}
 tr.removed-row{text-decoration:line-through;color:#ffffff;}
 tr.removed-row td input{color:#ffffff;}
 td.col-selected{background:#d4e6ff !important;}
-tr.summary-row td{background:#f8f9fa !important;font-weight:bold;border-top:2px solid #2b65ec;}
+tr.summary-row td{background:#f8f9fa !important;font-weight:bold;border:none !important;border-top:2px solid #2b65ec !important;text-align:center !important;}
 
 .export-textarea{width:100%;min-height:200px;border:1px solid #ccc;padding:8px;border-radius:6px;font-size:12px;white-space:pre;}
 .stat-panel{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;}
@@ -2972,6 +2972,10 @@ function exportSelectedColsToImage() {
         if (!keepInClone.includes(i)) remainingThs[i].parentNode.removeChild(remainingThs[i]);
     }
     cloneRows.forEach(tr => {
+                // ★ 先删掉所有被隐藏的 td（防止导出时出现空框）
+        tr.querySelectorAll('td').forEach(td => {
+            if (td.style.display === 'none') td.parentNode.removeChild(td);
+        });
         const tds = tr.querySelectorAll('td');
         if (tds.length > 0) tds[tds.length - 1].parentNode.removeChild(tds[tds.length - 1]);
         if (tds.length > 0) tds[0].parentNode.removeChild(tds[0]);
