@@ -2930,6 +2930,9 @@ function exportSelectedColsToImage() {
     const keepIndices = dataColIndices.filter(idx => selected.has(parseInt(allTh[idx].getAttribute('data-col-index'), 10)));
     if (keepIndices.length === 0) { alert('未选中任何有效列'); return; }
     const cloneTable = originalTable.cloneNode(true);
+        // ★ 修复：导出时确保合计行存在
+    const sumRow = cloneTable.querySelector('tr.summary-row');
+    if (!sumRow) console.warn('合计行不存在');
     cloneTable.querySelectorAll('td input').forEach(inp => { inp.parentNode.textContent = inp.value; });
     cloneTable.querySelectorAll('input').forEach(inp => inp.remove());
     cloneTable.querySelectorAll('.resize-handle, .row-resize-handle').forEach(el => el.remove());
@@ -3126,15 +3129,19 @@ function renderTable() {
         });
         html += `</tbody></table>`;
                 // ★ 计算销量合计
-        let totalSales = 0;
-        rows.forEach(r => { totalSales += Number(r["销量"]) || 0; });
-        html += `<tr class="summary-row">`;
+                let totalSales = 0;
+        appData.pure_rows.forEach(r => {
+            const calc = calcRow(r);
+            totalSales += Number(calc["销量"]) || 0;
+        });
+                html += `<tr class="summary-row">`;
         html += `<td></td>`;
-        dataCols.forEach(c => {
+        dataCols.forEach((c, ci) => {
+            const hide = appData.hidden_cols.has(ci) ? "style='display:none'" : "";
             if (c === "销量") {
-                html += `<td style="color:#e74c3c;font-weight:bold;">${totalSales}</td>`;
+                html += `<td ${hide} style="color:#e74c3c;font-weight:bold;text-align:center;">${totalSales}</td>`;
             } else {
-                html += `<td></td>`;
+                html += `<td ${hide}></td>`;
             }
         });
         html += `<td></td>`;
