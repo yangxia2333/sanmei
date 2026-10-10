@@ -2972,10 +2972,6 @@ function exportSelectedColsToImage() {
         if (!keepInClone.includes(i)) remainingThs[i].parentNode.removeChild(remainingThs[i]);
     }
     cloneRows.forEach(tr => {
-                // ★ 先删掉所有被隐藏的 td（防止导出时出现空框）
-        tr.querySelectorAll('td').forEach(td => {
-            if (td.style.display === 'none') td.parentNode.removeChild(td);
-        });
         const tds = tr.querySelectorAll('td');
         if (tds.length > 0) tds[tds.length - 1].parentNode.removeChild(tds[tds.length - 1]);
         if (tds.length > 0) tds[0].parentNode.removeChild(tds[0]);
