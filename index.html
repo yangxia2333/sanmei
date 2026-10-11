@@ -449,7 +449,9 @@ function mergePureRows(rows) {
 }
 
 function sortPureRowsByCustomRule(list) {
-    const normal = list.filter(r => r.品相 !== "组合");
+    // ★ 先把盆苗、不带花等特殊品相挑出来，它们不参与排序，最后再追加回去
+    const otherPhases = list.filter(r => r.品相 !== "组合" && r.品相 !== "带花" && r.品相 !== "少量花");
+    const normal = list.filter(r => r.品相 === "带花" || r.品相 === "少量花");
     const combines = list.filter(r => r.品相 === "组合");
     const varietyMap = {};
     normal.forEach(r => {
@@ -576,6 +578,8 @@ function sortPureRowsByCustomRule(list) {
     singleItems.forEach(item => result.push(...item.rows));
     combines.sort((a, b) => a.品种.localeCompare(b.品种));
     result.push(...combines);
+    // ★ 把盆苗、不带花追加到末尾
+    result.push(...otherPhases);
     return result;
 }
 
