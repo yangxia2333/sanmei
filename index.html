@@ -63,7 +63,7 @@ tr.removed-row td{background:#ff0000 !important;}
 tr.removed-row{text-decoration:line-through;color:#ffffff;}
 tr.removed-row td input{color:#ffffff;}
 td.col-selected{background:#d4e6ff !important;}
-tr.summary-row td{background:#f8f9fa !important;font-weight:bold;border:none !important;border-top:2px solid #2b65ec !important;text-align:center !important;}
+tr.summary-row td{background:#f8f9fa !important;font-weight:bold;border:none !important;border-top:2px solid #2b65ec !important;text-align:center !important;color:#e74c3c !important;}
 
 .export-textarea{width:100%;min-height:200px;border:1px solid #ccc;padding:8px;border-radius:6px;font-size:12px;white-space:pre;}
 .stat-panel{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;margin-bottom:8px;}
@@ -267,7 +267,8 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <h4>编辑品种</h4>
 <input id="editVarName" placeholder="正式品种名">
 <input id="editVarAlias" placeholder="别名逗号分隔">
-<input id="editVarPrice" type="number" step="0.1" placeholder="带花价格（元）">
+<input id="editVarPrice" type="number" step="0.1" placeholder="带花/组合价格（元）">
+<input id="editVarPottedPrice" type="number" step="0.1" placeholder="盆苗价格（元，留空则用带花价）">
 <div id="combinePhaseBox" style="display:none;background:#fff8e1;padding:8px;border-radius:6px;margin:6px 0;">
 <div style="font-size:12px;color:#888;margin-bottom:4px;">组合品相配置：</div>
 <label style="font-size:12px;">左边品种的品相:</label>
@@ -1155,8 +1156,17 @@ function getSalePrice(row) {
     }
     if (basePrice === null) return null;
 
-    if (phase === "组合") return basePrice;
+        if (phase === "组合") return basePrice;
     if (phase === "带花") return basePrice;
+    if (phase === "盆苗") {
+        // 盆苗优先用独立价格，没有则用带花价
+        if (typeof p === 'object' && p !== null) {
+            if (spec === '细' && p.盆苗细 !== undefined && p.盆苗细 !== '') return Number(p.盆苗细);
+            if (p.盆苗粗 !== undefined && p.盆苗粗 !== '') return Number(p.盆苗粗);
+            if (p.盆苗细 !== undefined && p.盆苗细 !== '') return Number(p.盆苗细);
+        }
+        return basePrice;
+    }
     if (phase === "少量花") {
         if (varietyName.includes("变色龙")) return basePrice;
         return basePrice - 1;
@@ -1552,6 +1562,16 @@ function parseAnyText(text) {
         if (!s) return;
         if (s === "少量花") { cp = "少量花"; return; }
         if (s === "带花") { cp = "带花"; return; }
+        if (s === "盆苗") { cp = "盆苗"; return; }
+                // ★ 检测行内品相关键词
+        let inlinePhase = null;
+        if (s.includes("原盆") || s.includes("盆苗")) inlinePhase = "盆苗";
+        else if (s.includes("不带花")) inlinePhase = "不带花";
+        else if (s.includes("少量花")) inlinePhase = "少量花";
+        else if (s.includes("带花")) inlinePhase = "带花";
+        if (inlinePhase) {
+            cleanLine = s.replace(/原盆带花|原盆|盆苗|不带花|少量花|带花/g, '').replace(/[【】（）\(\)]/g, '').trim();
+        }
         let cleanLine = s.replace(/[【】（）\(\)]/g, '').trim();
         const match = cleanLine.match(/^(.*?)(\d+)(.*)$/);
         if (match) {
@@ -1578,7 +1598,7 @@ function parseAnyText(text) {
                 if (matchedVariety) variety = matchedVariety;
             }
             out.push({
-                品种: variety, 品相: cp || "带花", 原始数量: qty,
+                品相: inlinePhase || cp || "带花", 原始数量: qty,
                 备注: remark, 下架: false, _isCombine: false, _isSystemCombine: false, 规格: spec
             });
             return;
@@ -1604,7 +1624,7 @@ function parseAnyText(text) {
                 if (matchedVariety) variety = matchedVariety;
             }
             out.push({
-                品种: variety, 品相: cp || "带花", 原始数量: 0,
+                品相: inlinePhase || cp || "带花", 原始数量: 0,
                 备注: remark, 下架: false, _isCombine: false, _isSystemCombine: false, 规格: spec
             });
         }
@@ -1771,6 +1791,10 @@ appData.sales_dict[`${row.品种}||${phase}||${row.规格||''}`] = qty;
     // ★ 修复：优先识别“组合”，不要被“少量花”干扰
 if (line.includes("组合") || line.includes("+") || line.includes("＋")) {
     phase = "组合"; spec = '';
+} else if (line.includes("原盆") || line.includes("盆苗")) {
+    phase = "盆苗";
+} else if (line.includes("不带花")) {
+    phase = "不带花";
 } else if (line.includes("少量花")) {
     phase = "少量花";
 } else if (line.includes("带花")) {
@@ -2409,10 +2433,13 @@ function renderLibList() {
         let priceDisplay = '未设置';
         if (typeof p === 'number') {
             priceDisplay = p;
-        } else if (typeof p === 'object' && p !== null) {
+                } else if (typeof p === 'object' && p !== null) {
             const c = (p.粗 !== undefined && p.粗 !== '') ? p.粗 : '空';
             const f = (p.细 !== undefined && p.细 !== '') ? p.细 : '空';
-            priceDisplay = `粗${c}/细${f}`;
+            let txt = `粗${c}/细${f}`;
+            if (p.盆苗粗 !== undefined && p.盆苗粗 !== '') txt += `/盆苗粗${p.盆苗粗}`;
+            if (p.盆苗细 !== undefined && p.盆苗细 !== '') txt += `/盆苗细${p.盆苗细}`;
+            priceDisplay = txt;
         }
         const div = document.createElement("div");
         div.className = "list-item";
@@ -2971,7 +2998,9 @@ function exportSelectedColsToImage() {
     for (let i = remainingThs.length - 1; i >= 0; i--) {
         if (!keepInClone.includes(i)) remainingThs[i].parentNode.removeChild(remainingThs[i]);
     }
-    cloneRows.forEach(tr => {
+        cloneRows.forEach(tr => {
+        // ★ 合计行特殊处理：整行保留，不参与列裁剪
+        if (tr.classList.contains('summary-row')) return;
         const tds = tr.querySelectorAll('td');
         if (tds.length > 0) tds[tds.length - 1].parentNode.removeChild(tds[tds.length - 1]);
         if (tds.length > 0) tds[0].parentNode.removeChild(tds[0]);
@@ -3137,23 +3166,28 @@ function renderTable() {
             html += `</tr>`;
         });
                 html += `</tbody>`;
-        // ★ 计算销量合计（全表，不受筛选影响）
+                // ★ 计算：小苗销量（不含盆苗）+ 每个盆苗品种的销量
         let totalSales = 0;
+        let potSalesList = [];
         appData.pure_rows.forEach(r => {
             const calc = calcRow(r);
-            totalSales += Number(calc["销量"]) || 0;
-        });
-                html += `<tr class="summary-row">`;
-        html += `<td style="border:none;"></td>`;
-        dataCols.forEach((c, ci) => {
-            const hide = appData.hidden_cols.has(ci) ? "style='display:none'" : "";
-            if (c === "销量") {
-                html += `<td ${hide} style="border:none;color:#e74c3c;font-weight:bold;text-align:center;">${totalSales}</td>`;
+            const sale = Number(calc["销量"]) || 0;
+            if (r.品相 === "盆苗") {
+                if (sale > 0) {
+                    const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
+                    potSalesList.push(`${displayName}${sale}盆`);
+                }
             } else {
-                html += `<td ${hide} style="border:none;"></td>`;
+                totalSales += sale;
             }
         });
-        html += `<td style="border:none;"></td>`;
+        let summaryText = `小苗销量总数：${totalSales}`;
+        if (potSalesList.length > 0) {
+            summaryText += `；盆苗销量：${potSalesList.join('，')}`;
+        }
+        const totalColspan = 1 + dataCols.length + 1;
+        html += `<tr class="summary-row">`;
+        html += `<td colspan="${totalColspan}" style="text-align:center;border:none;border-top:2px solid #2b65ec;color:#e74c3c;font-weight:bold;padding:8px;font-size:13px;">${summaryText}</td>`;
         html += `</tr>`;
         html += `</table>`;
 
@@ -3401,10 +3435,15 @@ function openEditVariety(idx) {
     document.getElementById("editVarName").value = name;
     document.getElementById("editVarAlias").value = aliases.join(",");
     const p = appData.variety_prices[name];
-    let coarsePrice = '';
+        let coarsePrice = '';
+    let pottedPrice = '';
     if (typeof p === 'number') coarsePrice = p;
-    else if (typeof p === 'object' && p !== null && p.粗 !== undefined) coarsePrice = p.粗;
+    else if (typeof p === 'object' && p !== null) {
+        if (p.粗 !== undefined) coarsePrice = p.粗;
+        if (p.盆苗粗 !== undefined) pottedPrice = p.盆苗粗;
+    }
     document.getElementById("editVarPrice").value = coarsePrice;
+    document.getElementById("editVarPottedPrice").value = pottedPrice;
 
     // ★ 判断是否是组合：名称带 + 号，或者别名里含"组合"两个字
     const aliasStr = aliases.join(",");
@@ -3439,23 +3478,26 @@ function submitEditVariety() {
     const priceVal = document.getElementById("editVarPrice").value.trim();
     if (!newName) { alert("品种名不能为空"); return; }
     
+        const pottedVal = document.getElementById("editVarPottedPrice").value.trim();
     const oldPrice = appData.variety_prices[oldName];
     let newPrice = undefined;
+    let baseObj = {};
+    if (typeof oldPrice === 'number') baseObj = { 粗: oldPrice };
+    else if (typeof oldPrice === 'object' && oldPrice !== null) baseObj = { ...oldPrice };
     if (priceVal !== '') {
         const cv = Number(priceVal);
         if (isNaN(cv) || cv < 0) { alert("请输入有效价格"); return; }
-        if (typeof oldPrice === 'object' && oldPrice !== null && oldPrice.细 !== undefined) {
-            newPrice = { 粗: cv, 细: oldPrice.细 };
-        } else {
-            newPrice = cv;
-        }
-    } else {
-        if (typeof oldPrice === 'object' && oldPrice !== null) {
-            newPrice = { 细: oldPrice.细 };
-        } else {
-            newPrice = undefined;
-        }
+        baseObj.粗 = cv;
     }
+    if (pottedVal !== '') {
+        const pv = Number(pottedVal);
+        if (isNaN(pv) || pv < 0) { alert("盆苗价格无效"); return; }
+        baseObj.盆苗粗 = pv;
+    } else {
+        delete baseObj.盆苗粗;
+        delete baseObj.盆苗细;
+    }
+    if (Object.keys(baseObj).length > 0) newPrice = baseObj;
     
     Object.keys(appData.alias_map).forEach(k => {
         if (appData.alias_map[k] === oldName) delete appData.alias_map[k];
