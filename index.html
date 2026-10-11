@@ -1570,7 +1570,7 @@ function parseAnyText(text) {
         else if (s.includes("少量花")) inlinePhase = "少量花";
         else if (s.includes("带花")) inlinePhase = "带花";
 
-        // ★ 先声明 cleanLine，再根据情况清洗
+        // ★ 先声明 cleanLine，再根据情况清洗（注意这里顺序不能反）
         let cleanLine = s;
         if (inlinePhase) {
             cleanLine = cleanLine.replace(/原盆带花|原盆|盆苗|不带花|少量花|带花/g, '');
