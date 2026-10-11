@@ -1569,10 +1569,13 @@ function parseAnyText(text) {
         else if (s.includes("不带花")) inlinePhase = "不带花";
         else if (s.includes("少量花")) inlinePhase = "少量花";
         else if (s.includes("带花")) inlinePhase = "带花";
+
+        // ★ 先声明 cleanLine，再根据情况清洗
+        let cleanLine = s;
         if (inlinePhase) {
-            cleanLine = s.replace(/原盆带花|原盆|盆苗|不带花|少量花|带花/g, '').replace(/[【】（）\(\)]/g, '').trim();
+            cleanLine = cleanLine.replace(/原盆带花|原盆|盆苗|不带花|少量花|带花/g, '');
         }
-        let cleanLine = s.replace(/[【】（）\(\)]/g, '').trim();
+        cleanLine = cleanLine.replace(/[【】（）\(\)]/g, '').trim();
         const match = cleanLine.match(/^(.*?)(\d+)(.*)$/);
         if (match) {
             let varietyName = match[1].trim();
