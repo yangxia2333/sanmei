@@ -1597,7 +1597,8 @@ function parseAnyText(text) {
                 const matchedVariety = matchVariety(variety);
                 if (matchedVariety) variety = matchedVariety;
             }
-            out.push({
+                        out.push({
+                品种: variety,  // 👈 补上漏掉的品种字段！
                 品相: inlinePhase || cp || "带花", 原始数量: qty,
                 备注: remark, 下架: false, _isCombine: false, _isSystemCombine: false, 规格: spec
             });
@@ -1623,7 +1624,8 @@ function parseAnyText(text) {
                 const matchedVariety = matchVariety(variety);
                 if (matchedVariety) variety = matchedVariety;
             }
-            out.push({
+                        out.push({
+                品种: variety,  // 👈 补上漏掉的品种字段！
                 品相: inlinePhase || cp || "带花", 原始数量: 0,
                 备注: remark, 下架: false, _isCombine: false, _isSystemCombine: false, 规格: spec
             });
@@ -2395,13 +2397,14 @@ function goPage(pageName) {
         if (pageName === 'table') {
         renderTable();
         let noPriceItems = [];
-        appData.pure_rows.forEach(r => {
-            if (!r) return; // 👈 新增：跳过空数据
+                appData.pure_rows.forEach(r => {
+            if (!r) return;
             const vn = r.品种;
-                if (appData.variety_prices[vn] === undefined && !noPriceItems.includes(vn)) {
-                    noPriceItems.push(vn);
-                }
-            });
+            if (typeof vn !== 'string' || vn.trim() === '') return; // 👈 新增：跳过空品种，防止 undefined
+            if (appData.variety_prices[vn] === undefined && !noPriceItems.includes(vn)) {
+                noPriceItems.push(vn);
+            }
+        });
             if (noPriceItems.length > 0) {
                 if (confirm(`以下品种未设置价格：\n${noPriceItems.slice(0, 10).join('、')}\n是否去品种库添加价格？`)) {
                     goPage('lib');
