@@ -2965,15 +2965,6 @@ function exportSelectedColsToImage() {
         if (th.hasAttribute('data-col-index')) dataColIndices.push(i);
     }
     const keepIndices = dataColIndices.filter(idx => selected.has(parseInt(allTh[idx].getAttribute('data-col-index'), 10)));
-        // ★ 强制保留"销量"列，不管用户有没有勾选
-    const salesDataIdx = baseColsName.indexOf("销量");
-    if (salesDataIdx !== -1) {
-        const salesThIdx = salesDataIdx + 1;
-        if (!keepIndices.includes(salesThIdx)) {
-            keepIndices.push(salesThIdx);
-            keepIndices.sort((a, b) => a - b);
-        }
-    }
     if (keepIndices.length === 0) { alert('未选中任何有效列'); return; }
     const cloneTable = originalTable.cloneNode(true);
         // ★ 修复：导出时确保合计行存在
@@ -3191,13 +3182,13 @@ function renderTable() {
                 totalSales += sale;
             }
         });
-        let summaryText = `小苗销量总数：${totalSales}`;
+        let summaryHtml = `小苗销量总数：${totalSales}`;
         if (potSalesList.length > 0) {
-            summaryText += `；盆苗销量：${potSalesList.join('，')}`;
+            summaryHtml += `<br>盆苗销量：${potSalesList.join('，')}`;
         }
         const totalColspan = 1 + dataCols.length + 1;
         html += `<tr class="summary-row">`;
-        html += `<td colspan="${totalColspan}" style="text-align:center;border:none;border-top:2px solid #2b65ec;color:#e74c3c;font-weight:bold;padding:8px;font-size:13px;">${summaryText}</td>`;
+                html += `<td colspan="${totalColspan}" style="text-align:center;border:none;border-top:2px solid #2b65ec;color:#e74c3c;font-weight:bold;padding:10px;font-size:13px;white-space:normal !important;word-break:break-all;line-height:1.6;">${summaryHtml}</td>`;
         html += `</tr>`;
         html += `</table>`;
 
