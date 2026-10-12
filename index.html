@@ -3114,9 +3114,9 @@ function renderTable() {
         let html = `<table><thead><tr>`;
         html += `<th style="min-width:40px;width:40px;"><input type="checkbox" id="selectAllRows" class="select-all-check"></th>`;
         dataCols.forEach((c, i) => {
-            const hide = appData.hidden_cols.has(i) ? "style='display:none'" : "";
+            if (appData.hidden_cols.has(i)) return;
             const checked = appData.selectedColsForExport.has(i) ? 'checked' : '';
-            html += `<th ${hide} data-col-index="${i}" style="min-width:80px;cursor:pointer;position:relative;">
+            html += `<th data-col-index="${i}" style="min-width:80px;cursor:pointer;position:relative;">
             <span>${c}</span>
             <input type="checkbox" class="col-select-check" data-col-index="${i}" ${checked} title="勾选此列用于导出图片">
             <div class="resize-handle"></div>
@@ -3145,7 +3145,7 @@ function renderTable() {
             const checked = (pureIdx !== -1 && selectedRows.has(pureIdx)) ? 'checked' : '';
             html += `<td style="width:40px;min-width:40px;"><input type="checkbox" class="row-checkbox" data-pureidx="${pureIdx}" ${checked}></td>`;
             dataCols.forEach((c, ci) => {
-                const hide = appData.hidden_cols.has(ci) ? "style='display:none'" : "";
+                if (appData.hidden_cols.has(ci)) return;
                 let val = row[c] ?? "";
                 const isNumber = ["原始数量","销量","剩余库存","抖音","微信","卖价"].includes(c);
                 const isSeq = c === "序号";
@@ -3158,7 +3158,7 @@ function renderTable() {
                 if (c === "剩余库存" && (Number(val) || 0) <= 0) cellCls += " cell-red";
                 let tdExtraAttr = '', inputExtraAttr = '';
                 if (c === "品种") { tdExtraAttr = ' data-is-variety="true" '; inputExtraAttr = ' readonly '; }
-                html += `<td ${hide} ${tdExtraAttr} class="${cellCls}" data-rowindex="${ri}" data-colindex="${ci}" style="position:relative;">
+                html += `<td ${tdExtraAttr} class="${cellCls}" data-rowindex="${ri}" data-colindex="${ci}" style="position:relative;">
                 <input data-row="${ri}" data-col="${ci}" type="${type}" value="${val}" ${actualDisabled?'disabled':''} ${inputExtraAttr}>
                 ${ci === 0 ? '<div class="row-resize-handle"></div>' : ''}
                 </td>`;
@@ -3186,7 +3186,8 @@ function renderTable() {
         if (potSalesList.length > 0) {
             summaryHtml += `<br>盆苗销量：${potSalesList.join('，')}`;
         }
-        const totalColspan = 1 + dataCols.length + 1;
+        const visibleColsCount = dataCols.filter((c, ci) => !appData.hidden_cols.has(ci)).length;
+        const totalColspan = 1 + visibleColsCount + 1;
         html += `<tr class="summary-row">`;
                 html += `<td colspan="${totalColspan}" style="text-align:center;border:none;border-top:2px solid #2b65ec;color:#e74c3c;font-weight:bold;padding:10px;font-size:13px;white-space:normal !important;word-break:break-all;line-height:1.6;">${summaryHtml}</td>`;
         html += `</tr>`;
