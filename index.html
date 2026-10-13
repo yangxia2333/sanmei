@@ -1080,11 +1080,9 @@ function deleteRow(rowIdx) {
 }
 
 function moveRow(rowIdx, dir) {
-    const full = assembleFullData();
-    if (rowIdx >= full.length) return;
-    const t = full[rowIdx];
-    const idx = findPureIndex(t);
-    if (idx === -1) { alert("找不到该行数据"); return; }
+    // ★ 修复：rowIdx 现在是 pureIdx（原始数据索引），直接用即可
+    if (rowIdx < 0 || rowIdx >= appData.pure_rows.length) return;
+    const idx = rowIdx;
     const len = appData.pure_rows.length;
     if (dir === "up" && idx > 0) {
         [appData.pure_rows[idx - 1], appData.pure_rows[idx]] = [appData.pure_rows[idx], appData.pure_rows[idx - 1]];
@@ -3159,11 +3157,11 @@ function renderTable() {
                 let tdExtraAttr = '', inputExtraAttr = '';
                 if (c === "品种") { tdExtraAttr = ' data-is-variety="true" '; inputExtraAttr = ' readonly '; }
                 html += `<td ${tdExtraAttr} class="${cellCls}" data-rowindex="${ri}" data-colindex="${ci}" style="position:relative;">
-                <input data-row="${ri}" data-col="${ci}" type="${type}" value="${val}" ${actualDisabled?'disabled':''} ${inputExtraAttr}>
+                <input data-row="${pureIdx}" data-col="${ci}" type="${type}" value="${val}" ${actualDisabled?'disabled':''} ${inputExtraAttr}>
                 ${ci === 0 ? '<div class="row-resize-handle"></div>' : ''}
                 </td>`;
             });
-            html += `<td><button class="move-btn" data-up="${ri}">▲</button><button class="move-btn" data-down="${ri}">▼</button></td>`;
+            html += `<td><button class="move-btn" data-up="${pureIdx}">▲</button><button class="move-btn" data-down="${pureIdx}">▼</button></td>`;
             html += `</tr>`;
         });
                 html += `</tbody>`;
@@ -3343,12 +3341,10 @@ function bindResizeHandles() {
 }
 
 function cellEdit(ri, ci, val) {
-    const full = assembleFullData();
-    if (ri >= full.length) { renderTable(); return; }
-    const t = full[ri];
-    const idx = findPureIndex(t);
-    if (idx === -1) { alert("数据异常，请刷新"); renderTable(); return; }
-    const r = appData.pure_rows[idx];
+    // ★ 修复：ri 现在是 pureIdx（原始数据索引），直接用即可
+    if (ri < 0 || ri >= appData.pure_rows.length) { renderTable(); return; }
+    const r = appData.pure_rows[ri];
+    if (!r) { renderTable(); return; }
     const dataCols = [...baseColsName, ...appData.customCols];
     const key = dataCols[ci];
     if (!key || key === "序号") { renderTable(); return; }
