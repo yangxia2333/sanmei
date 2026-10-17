@@ -244,6 +244,7 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <button id="btnUnhideCol" style="background:#8fd19e;">取消隐藏列</button>
 <button id="btnHideSelectedRows" style="background:#007bff;">隐藏选中行</button>
 <button id="btnUnhideRows" style="background:#8bb9fe;">取消隐藏行</button>
+<button id="btnPresetCols" style="background:#9b59b6;">⚙️ 预设隐藏列</button>
 <button id="btnFilterNotice" style="display:none;background:#f0ad4e;">剩余库存已进行筛选</button>
 </div>
 <div id="tableWrap" style="overflow-x:auto;"></div>
@@ -252,6 +253,26 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 </div>
 </div>
 
+<div id="popPreset" class="pop-mask hide">
+<div class="pop-win">
+<h4>预设隐藏列</h4>
+<div style="font-size:12px;color:#888;margin-bottom:8px;">输入要隐藏的列名，多个列用逗号分隔（例如：卖价,销量）</div>
+<label>预设 1:</label>
+<input id="presetInput1" placeholder="例如：序号,卖价">
+<label>预设 2:</label>
+<input id="presetInput2" placeholder="例如：抖音,微信">
+<label>预设 3:</label>
+<input id="presetInput3" placeholder="例如：备注">
+<div style="margin-top:15px; display:flex; gap:10px; flex-wrap:wrap;">
+<button id="btnApplyPreset1" style="background:#2b65ec;">隐藏预设1</button>
+<button id="btnApplyPreset2" style="background:#2b65ec;">隐藏预设2</button>
+<button id="btnApplyPreset3" style="background:#2b65ec;">隐藏预设3</button>
+</div>
+<div style="margin-top:15px; text-align:right;">
+<button class="gray" id="btnClosePreset">关闭</button>
+</div>
+</div>
+</div>
 <div id="popUnknownVar" class="pop-mask hide">
 <div class="pop-win">
 <h4>检测到新品种</h4>
@@ -417,6 +438,7 @@ let appData = {
     _showZeroStockAlertOnTable: false,
     remainFilterValues: [], selectedColsForExport: new Set(),
     diffOldText: "", diffNewText: "", diffResultText: "",
+    preset_hidden_cols: { 1: "", 2: "", 3: "" },
     _salesSortBackup: null,
     deleteHistory: []
 };
@@ -2292,6 +2314,7 @@ function applyLoadedData(d) {
     appData.remainFilterValues = d.remainFilterValues || [];
     appData.selectedColsForExport = new Set(d.selectedColsForExport || []);
     appData.diffOldText = d.diffOldText || '';
+    appData.preset_hidden_cols = d.preset_hidden_cols || { 1: "", 2: "", 3: "" };
     appData.diffNewText = d.diffNewText || '';
     appData.diffResultText = d.diffResultText || '';
     appData.deleteHistory = d.deleteHistory || [];
@@ -2318,6 +2341,7 @@ function saveStorage(isManualSync = false) {
         remainFilterValues: appData.remainFilterValues,
         selectedColsForExport: Array.from(appData.selectedColsForExport),
         diffOldText: appData.diffOldText, diffNewText: appData.diffNewText,
+        preset_hidden_cols: appData.preset_hidden_cols,
         diffResultText: appData.diffResultText, deleteHistory: appData.deleteHistory || []
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -3643,6 +3667,56 @@ function bindGlobalButtons() {
         showToast('✅ 已取消隐藏所有行');
     });
     document.getElementById("btnUnhideCol").addEventListener('click', unhideLastCol);
+        // ★ 预设隐藏列逻辑
+    document.getElementById("btnPresetCols").addEventListener('click', function() {
+        document.getElementById("presetInput1").value = appData.preset_hidden_cols[1] || "";
+        document.getElementById("presetInput2").value = appData.preset_hidden_cols[2] || "";
+        document.getElementById("presetInput3").value = appData.preset_hidden_cols[3] || "";
+        document.getElementById("popPreset").classList.remove("hide");
+    });
+
+    document.getElementById("btnClosePreset").addEventListener('click', function() {
+        // 关闭时保存输入的内容
+        appData.preset_hidden_cols[1] = document.getElementById("presetInput1").value.trim();
+        appData.preset_hidden_cols[2] = document.getElementById("presetInput2").value.trim();
+        appData.preset_hidden_cols[3] = document.getElementById("presetInput3").value.trim();
+        saveStorage();
+        document.getElementById("popPreset").classList.add("hide");
+    });
+
+    function applyPreset(presetNum) {
+        const inputVal = document.getElementById("presetInput" + presetNum).value.trim();
+        if (!inputVal) { alert("预设 " + presetNum + " 为空，请先输入要隐藏的列名"); return; }
+        
+        // 保存当前预设
+        appData.preset_hidden_cols[presetNum] = inputVal;
+        saveStorage();
+
+        // 解析逗号分隔的列名
+        const colNames = inputVal.split(/[,，\s]+/).filter(s => s.length > 0);
+        const allCols = [...baseColsName, ...appData.customCols];
+        
+        let hiddenCount = 0;
+        colNames.forEach(name => {
+            const idx = allCols.indexOf(name);
+            if (idx !== -1) {
+                appData.hidden_cols.add(idx);
+                hiddenCount++;
+            }
+        });
+
+        if (hiddenCount > 0) {
+            renderTable();
+            alert(`✅ 成功隐藏预设${presetNum}中的 ${hiddenCount} 列`);
+            document.getElementById("popPreset").classList.add("hide");
+        } else {
+            alert(`⚠️ 预设${presetNum}中的列名没有匹配到任何当前列，请检查名称是否正确（如“销量”、“抖音”）`);
+        }
+    }
+
+    document.getElementById("btnApplyPreset1").addEventListener('click', () => applyPreset(1));
+    document.getElementById("btnApplyPreset2").addEventListener('click', () => applyPreset(2));
+    document.getElementById("btnApplyPreset3").addEventListener('click', () => applyPreset(3));
     document.getElementById("btnManualAddRow").addEventListener('click', manualAddRow);
     document.getElementById("btnClearHighlight").addEventListener('click', clearHighlight);
     document.getElementById("btnClearRemoved").addEventListener('click', clearRemoved);
