@@ -256,7 +256,7 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <div id="popPreset" class="pop-mask hide">
 <div class="pop-win">
 <h4>预设隐藏列</h4>
-<div style="font-size:12px;color:#888;margin-bottom:8px;">输入要隐藏的列名，多个列用逗号分隔（例如：卖价,销量）</div>
+<div style="font-size:12px;color:#888;margin-bottom:8px;">输入要隐藏的列名，多个列用逗号分隔（例如：卖价,销量,操作）</div>
 <label>预设 1:</label>
 <input id="presetInput1" placeholder="例如：序号,卖价">
 <label>预设 2:</label>
@@ -3146,7 +3146,11 @@ function renderTable() {
             <div class="resize-handle"></div>
             </th>`;
         });
-        html += `<th style="min-width:160px;">操作</th></tr></thead><tbody>`;
+        const actionColIdx = dataCols.length;
+        if (!appData.hidden_cols.has(actionColIdx)) {
+            html += `<th style="min-width:160px;">操作</th>`;
+        }
+        html += `</tr></thead><tbody>`;
 
         let zebraCounter = 0;
         rows.forEach((row, ri) => {
@@ -3187,7 +3191,9 @@ function renderTable() {
                 ${ci === 0 ? '<div class="row-resize-handle"></div>' : ''}
                 </td>`;
             });
-            html += `<td><button class="move-btn" data-up="${pureIdx}">▲</button><button class="move-btn" data-down="${pureIdx}">▼</button></td>`;
+                        if (!appData.hidden_cols.has(actionColIdx)) {
+                html += `<td><button class="move-btn" data-up="${pureIdx}">▲</button><button class="move-btn" data-down="${pureIdx}">▼</button></td>`;
+            }
             html += `</tr>`;
         });
                 html += `</tbody>`;
@@ -3211,7 +3217,7 @@ function renderTable() {
             summaryHtml += `<br>盆苗销量：${potSalesList.join('，')}`;
         }
         const visibleColsCount = dataCols.filter((c, ci) => !appData.hidden_cols.has(ci)).length;
-        const totalColspan = 1 + visibleColsCount + 1;
+        const totalColspan = 1 + visibleColsCount + (appData.hidden_cols.has(actionColIdx) ? 0 : 1);
         html += `<tr class="summary-row">`;
                 html += `<td colspan="${totalColspan}" style="text-align:center;border:none;border-top:2px solid #2b65ec;color:#e74c3c;font-weight:bold;padding:10px;font-size:13px;white-space:normal !important;word-break:break-all;line-height:1.6;">${summaryHtml}</td>`;
         html += `</tr>`;
@@ -3711,10 +3717,14 @@ function bindGlobalButtons() {
         const allCols = [...baseColsName, ...appData.customCols];
         
         let hiddenCount = 0;
+        const actionColIdx = allCols.length; // 操作列的固定索引
         colNames.forEach(name => {
             const idx = allCols.indexOf(name);
             if (idx !== -1) {
                 appData.hidden_cols.add(idx);
+                hiddenCount++;
+            } else if (name === "操作") {
+                appData.hidden_cols.add(actionColIdx);
                 hiddenCount++;
             }
         });
