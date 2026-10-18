@@ -269,6 +269,8 @@ th .col-select-check{width:16px;height:16px;cursor:pointer;margin:0 2px;}
 <button id="btnApplyPreset3" style="background:#2b65ec;">隐藏预设3</button>
 </div>
 <div style="margin-top:15px; text-align:right;">
+<div style="margin-top:15px; display:flex; justify-content:flex-end; gap:10px;">
+<button id="btnSavePreset" style="background:#009944;">保存预设</button>
 <button class="gray" id="btnClosePreset">关闭</button>
 </div>
 </div>
@@ -3675,12 +3677,24 @@ function bindGlobalButtons() {
         document.getElementById("popPreset").classList.remove("hide");
     });
 
-    document.getElementById("btnClosePreset").addEventListener('click', function() {
-        // 关闭时保存输入的内容
+        // ★ 提取保存逻辑，方便复用
+    function savePresetInputs() {
         appData.preset_hidden_cols[1] = document.getElementById("presetInput1").value.trim();
         appData.preset_hidden_cols[2] = document.getElementById("presetInput2").value.trim();
         appData.preset_hidden_cols[3] = document.getElementById("presetInput3").value.trim();
         saveStorage();
+    }
+
+    // 点击"保存预设"按钮
+    document.getElementById("btnSavePreset").addEventListener('click', function() {
+        savePresetInputs();
+        showToast('✅ 预设已保存');
+        document.getElementById("popPreset").classList.add("hide");
+    });
+
+    // 点击"关闭"按钮
+    document.getElementById("btnClosePreset").addEventListener('click', function() {
+        savePresetInputs(); // 关闭时也自动保存一次，防止忘记点保存
         document.getElementById("popPreset").classList.add("hide");
     });
 
