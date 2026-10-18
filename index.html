@@ -2984,7 +2984,7 @@ function exportSelectedColsToImage() {
     if (!originalTable) { alert('表格未加载'); return; }
     const allTh = originalTable.querySelectorAll('thead tr th');
     const dataColIndices = [];
-    for (let i = 1; i < allTh.length - 1; i++) {
+    for (let i = 1; i < allTh.length; i++) {
         const th = allTh[i];
         if (th.hasAttribute('data-col-index')) dataColIndices.push(i);
     }
@@ -3023,17 +3023,28 @@ function exportSelectedColsToImage() {
     for (let i = remainingThs.length - 1; i >= 0; i--) {
         if (!keepInClone.includes(i)) remainingThs[i].parentNode.removeChild(remainingThs[i]);
     }
-        cloneRows.forEach(tr => {
-        // ★ 合计行特殊处理：整行保留，不参与列裁剪
-        if (tr.classList.contains('summary-row')) return;
-        const tds = tr.querySelectorAll('td');
-        if (tds.length > 0) tds[tds.length - 1].parentNode.removeChild(tds[tds.length - 1]);
-        if (tds.length > 0) tds[0].parentNode.removeChild(tds[0]);
-        const remainingTds = tr.querySelectorAll('td');
-        for (let i = remainingTds.length - 1; i >= 0; i--) {
-            if (!keepInClone.includes(i)) remainingTds[i].parentNode.removeChild(remainingTds[i]);
+    cloneRows.forEach(tr => {
+    // ★ 合计行特殊处理：整行保留，不参与列裁剪
+    if (tr.classList.contains('summary-row')) return;
+
+    const tds = Array.from(tr.querySelectorAll('td'));
+    for (let i = tds.length - 1; i >= 0; i--) {
+        const td = tds[i];
+        const colIdxStr = td.getAttribute('data-colindex');
+        
+        // 1. 没有 data-colindex 属性的，一定是复选框列或操作列，直接删掉
+        if (colIdxStr === null) {
+            td.remove();
+            continue;
         }
-    });
+        
+        // 2. 是数据列，检查是否在你勾选的列表里
+        const cIdx = parseInt(colIdxStr, 10);
+        if (!keepIndices.includes(cIdx + 1)) {
+            td.remove();
+        }
+    }
+});
     cloneTable.style.borderCollapse = 'collapse';
     cloneTable.style.width = 'auto';
     cloneTable.style.fontSize = '14px';
@@ -3391,7 +3402,7 @@ function cellEdit(ri, ci, val) {
         if (r.品相 === "组合" && r._isCombine) {
             if (!appData._manualCombineValues) appData._manualCombineValues = {};
             appData._manualCombineValues[r.品种] = newVal;
-            recalculateCombines(idx);
+            recalculateCombines(ri);
             const finalRow = appData.pure_rows.find(x => x.品种 === r.品种 && x.品相 === "组合" && x._isCombine);
             if (finalRow) {
                 r.原始数量 = finalRow.原始数量;
@@ -3574,6 +3585,11 @@ function submitEditVariety() {
     alert("保存成功！");
 }
 function bindGlobalButtons() {
+    const bind = (id, event, func) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener(event, func);
+    };
+
     // 问题1：点击"带花品"或"少量花品"分别修改各自的阈值
     const statPanelEl = document.getElementById("statPanel");
     if (statPanelEl) {
@@ -3598,60 +3614,61 @@ function bindGlobalButtons() {
             }
         });
     }
-    document.getElementById("btnSaveAll").addEventListener('click', saveAllData);
-    document.getElementById("btnCloudSync").addEventListener('click', async () => {
-                await saveStorage(true);
+
+    bind("btnSaveAll", 'click', saveAllData);
+    bind("btnCloudSync", 'click', async () => {
+        await saveStorage(true);
         await loadStorage();
         showToast('☁️ 云端同步完成');
     });
-    document.getElementById("btnPullData").addEventListener('click', forcePullFromCloud);
-    document.getElementById("btnLoadHistory").addEventListener('click', loadCloudHistory);
-    document.getElementById("btnLib").addEventListener('click', () => goPage('lib'));
-    document.getElementById("btnInputData").addEventListener('click', () => goPage('inputData'));
-    document.getElementById("btnSalesPage").addEventListener('click', () => goPage('salesPage'));
-    document.getElementById("btnDivPage").addEventListener('click', () => goPage('divPage'));
-    document.getElementById("btnSnapshotPage").addEventListener('click', () => goPage('snapshotPage'));
-    document.getElementById("btnDiffPage").addEventListener('click', () => goPage('diffPage'));
-    document.getElementById("btnExportAll").addEventListener('click', openExportPopup);
+    bind("btnPullData", 'click', forcePullFromCloud);
+    bind("btnLoadHistory", 'click', loadCloudHistory);
+    bind("btnLib", 'click', () => goPage('lib'));
+    bind("btnInputData", 'click', () => goPage('inputData'));
+    bind("btnSalesPage", 'click', () => goPage('salesPage'));
+    bind("btnDivPage", 'click', () => goPage('divPage'));
+    bind("btnSnapshotPage", 'click', () => goPage('snapshotPage'));
+    bind("btnDiffPage", 'click', () => goPage('diffPage'));
+    bind("btnExportAll", 'click', openExportPopup);
 
-    document.getElementById("libBackHome").addEventListener('click', () => goPage('home'));
-    document.getElementById("libBackInput").addEventListener('click', () => goPage('inputData'));
-    document.getElementById("libBackTable").addEventListener('click', () => goPage('table'));
-    document.getElementById("libBackSales").addEventListener('click', () => goPage('salesPage'));
-    document.getElementById("btnBatchImportLib").addEventListener('click', openBatchImportLib);
-    document.getElementById("btnUndoDelete").addEventListener('click', undoDelete);
-    document.getElementById("btnSaveNewVar").addEventListener('click', saveNewVariety);
+    bind("libBackHome", 'click', () => goPage('home'));
+    bind("libBackInput", 'click', () => goPage('inputData'));
+    bind("libBackTable", 'click', () => goPage('table'));
+    bind("libBackSales", 'click', () => goPage('salesPage'));
+    bind("btnBatchImportLib", 'click', openBatchImportLib);
+    bind("btnUndoDelete", 'click', undoDelete);
+    bind("btnSaveNewVar", 'click', saveNewVariety);
 
-    document.getElementById("inputBackHome").addEventListener('click', () => goPage('home'));
-    document.getElementById("btnClearInput").addEventListener('click', clearInputData);
-    document.getElementById("btnDoParse").addEventListener('click', doParse);
-    document.getElementById("btnDoImport").addEventListener('click', doImportBackup);
-    document.getElementById("btnGoToTable").addEventListener('click', () => goPage('table'));
+    bind("inputBackHome", 'click', () => goPage('home'));
+    bind("btnClearInput", 'click', clearInputData);
+    bind("btnDoParse", 'click', doParse);
+    bind("btnDoImport", 'click', doImportBackup);
+    bind("btnGoToTable", 'click', () => goPage('table'));
 
-    document.getElementById("salesBackHome").addEventListener('click', () => goPage('home'));
-    document.getElementById("btnSaveSales").addEventListener('click', saveSalesText);
-    document.getElementById("btnClearSales").addEventListener('click', clearSalesInput);
+    bind("salesBackHome", 'click', () => goPage('home'));
+    bind("btnSaveSales", 'click', saveSalesText);
+    bind("btnClearSales", 'click', clearSalesInput);
 
-    document.getElementById("divBackHome").addEventListener('click', () => goPage('home'));
-    document.getElementById("btnSaveDiv").addEventListener('click', saveDivisor);
+    bind("divBackHome", 'click', () => goPage('home'));
+    bind("btnSaveDiv", 'click', saveDivisor);
 
-    document.getElementById("snapBackHome").addEventListener('click', () => goPage('home'));
-    document.getElementById("btnCreateSnap").addEventListener('click', createSnapshot);
+    bind("snapBackHome", 'click', () => goPage('home'));
+    bind("btnCreateSnap", 'click', createSnapshot);
 
-    document.getElementById("diffBackHome").addEventListener('click', () => goPage('home'));
-    document.getElementById("btnRunDiff").addEventListener('click', runDiffCompare);
-    document.getElementById("btnDiffModifyResult").addEventListener('click', openDiffEdit);
-    document.getElementById("btnDiffUpdateTable").addEventListener('click', updateTableFromDiff);
-    document.getElementById("btnDiffSaveEdit").addEventListener('click', saveDiffEdit);
-    document.getElementById("btnDiffCancelEdit").addEventListener('click', cancelDiffEdit);
-    document.getElementById("btnDiffDeleteData").addEventListener('click', deleteDiffData);
+    bind("diffBackHome", 'click', () => goPage('home'));
+    bind("btnRunDiff", 'click', runDiffCompare);
+    bind("btnDiffModifyResult", 'click', openDiffEdit);
+    bind("btnDiffUpdateTable", 'click', updateTableFromDiff);
+    bind("btnDiffSaveEdit", 'click', saveDiffEdit);
+    bind("btnDiffCancelEdit", 'click', cancelDiffEdit);
+    bind("btnDiffDeleteData", 'click', deleteDiffData);
 
-    document.getElementById("tableBackHome").addEventListener('click', () => goPage('home'));
-    document.getElementById("btnAddCol").addEventListener('click', addCustomCol);
-    document.getElementById("btnDelSelectedRows").addEventListener('click', deleteSelectedRows);
-    document.getElementById("btnUndoTableDelete").addEventListener('click', undoTableDelete);
-    document.getElementById("btnHideSelectedCol").addEventListener('click', hideSelectedCol);
-        document.getElementById("btnHideSelectedRows").addEventListener('click', function() {
+    bind("tableBackHome", 'click', () => goPage('home'));
+    bind("btnAddCol", 'click', addCustomCol);
+    bind("btnDelSelectedRows", 'click', deleteSelectedRows);
+    bind("btnUndoTableDelete", 'click', undoTableDelete);
+    bind("btnHideSelectedCol", 'click', hideSelectedCol);
+    bind("btnHideSelectedRows", 'click', function() {
         if (selectedRows.size === 0) { alert("请先勾选要隐藏的行"); return; }
         const hiddenRows = appData._hiddenRows || new Set();
         selectedRows.forEach(idx => {
@@ -3667,92 +3684,22 @@ function bindGlobalButtons() {
         showToast('✅ 已隐藏选中行');
     });
 
-    document.getElementById("btnUnhideRows").addEventListener('click', function() {
+    bind("btnUnhideRows", 'click', function() {
         if (!appData._hiddenRows || appData._hiddenRows.size === 0) { alert("当前没有隐藏的行"); return; }
         appData._hiddenRows.clear();
         saveStorage();
         renderTable();
         showToast('✅ 已取消隐藏所有行');
     });
-    document.getElementById("btnUnhideCol").addEventListener('click', unhideLastCol);
-        // ★ 预设隐藏列逻辑
-    document.getElementById("btnPresetCols").addEventListener('click', function() {
-        document.getElementById("presetInput1").value = appData.preset_hidden_cols[1] || "";
-        document.getElementById("presetInput2").value = appData.preset_hidden_cols[2] || "";
-        document.getElementById("presetInput3").value = appData.preset_hidden_cols[3] || "";
-        document.getElementById("popPreset").classList.remove("hide");
-    });
+    bind("btnUnhideCol", 'click', unhideLastCol);
+    bind("btnManualAddRow", 'click', manualAddRow);
+    bind("btnClearHighlight", 'click', clearHighlight);
+    bind("btnClearRemoved", 'click', clearRemoved);
 
-        // ★ 提取保存逻辑，方便复用
-    function savePresetInputs() {
-        appData.preset_hidden_cols[1] = document.getElementById("presetInput1").value.trim();
-        appData.preset_hidden_cols[2] = document.getElementById("presetInput2").value.trim();
-        appData.preset_hidden_cols[3] = document.getElementById("presetInput3").value.trim();
-        saveStorage();
-    }
-
-    // 点击"保存预设"按钮
-    document.getElementById("btnSavePreset").addEventListener('click', function() {
-        savePresetInputs();
-        showToast('✅ 预设已保存');
-        document.getElementById("popPreset").classList.add("hide");
-    });
-
-    // 点击"关闭"按钮
-    document.getElementById("btnClosePreset").addEventListener('click', function() {
-        savePresetInputs(); // 关闭时也自动保存一次，防止忘记点保存
-        document.getElementById("popPreset").classList.add("hide");
-    });
-
-    function applyPreset(presetNum) {
-        const inputVal = document.getElementById("presetInput" + presetNum).value.trim();
-        if (!inputVal) { alert("预设 " + presetNum + " 为空，请先输入要隐藏的列名"); return; }
-        
-        // 保存当前预设
-        appData.preset_hidden_cols[presetNum] = inputVal;
-        saveStorage();
-
-        // 解析逗号分隔的列名
-        const colNames = inputVal.split(/[,，\s]+/).filter(s => s.length > 0);
-        const allCols = [...baseColsName, ...appData.customCols];
-        
-        let hiddenCount = 0;
-        const actionColIdx = allCols.length; // 操作列的固定索引
-        colNames.forEach(name => {
-            const idx = allCols.indexOf(name);
-            if (idx !== -1) {
-                appData.hidden_cols.add(idx);
-                hiddenCount++;
-            } else if (name === "操作") {
-                appData.hidden_cols.add(actionColIdx);
-                hiddenCount++;
-            }
-        });
-
-        if (hiddenCount > 0) {
-            renderTable();
-            alert(`✅ 成功隐藏预设${presetNum}中的 ${hiddenCount} 列`);
-            document.getElementById("popPreset").classList.add("hide");
-        } else {
-            alert(`⚠️ 预设${presetNum}中的列名没有匹配到任何当前列，请检查名称是否正确（如“销量”、“抖音”）`);
-        }
-    }
-
-    document.getElementById("btnApplyPreset1").addEventListener('click', () => applyPreset(1));
-    document.getElementById("btnApplyPreset2").addEventListener('click', () => applyPreset(2));
-    document.getElementById("btnApplyPreset3").addEventListener('click', () => applyPreset(3));
-    document.getElementById("btnManualAddRow").addEventListener('click', manualAddRow);
-    document.getElementById("btnClearHighlight").addEventListener('click', clearHighlight);
-    document.getElementById("btnClearRemoved").addEventListener('click', clearRemoved);
-
-    document.querySelectorAll('#btnExportSelectedColsImg, #btnExportSelectedColsImg2').forEach(btn => {
-        btn.addEventListener('click', exportSelectedColsToImage);
-    });
-
-    document.getElementById("btnPopJumpLib").addEventListener('click', jumpToLibFromPop);
-    document.getElementById("btnPopCloseUnknown").addEventListener('click', closeUnknownVarPop);
-    document.getElementById("btnSubmitEditVar").addEventListener('click', submitEditVariety);
-        document.getElementById("btnAddFinePrice").addEventListener('click', function() {
+    bind("btnPopJumpLib", 'click', jumpToLibFromPop);
+    bind("btnPopCloseUnknown", 'click', closeUnknownVarPop);
+    bind("btnSubmitEditVar", 'click', submitEditVariety);
+    bind("btnAddFinePrice", 'click', function() {
         const idx = appData.editVarietyIndex;
         if (idx === null) return;
         const name = appData.variety_list[idx];
@@ -3774,23 +3721,22 @@ function bindGlobalButtons() {
         renderLibList();
         alert("细杆价格已保存！");
     });
-    document.getElementById("btnCloseEditVar").addEventListener('click', closeEditVarPopup);
+    bind("btnCloseEditVar", 'click', closeEditVarPopup);
 
-    document.getElementById("btnFillExport").addEventListener('click', fillExportText);
-    document.getElementById("btnCopyExport").addEventListener('click', copyExportText);
-    document.getElementById("btnSaveToFile").addEventListener('click', saveExportToFile);
-    document.getElementById("btnCloseExport").addEventListener('click', closeExportPopup);
+    bind("btnFillExport", 'click', fillExportText);
+    bind("btnCopyExport", 'click', copyExportText);
+    bind("btnSaveToFile", 'click', saveExportToFile);
+    bind("btnCloseExport", 'click', closeExportPopup);
 
-    document.getElementById("btnCloseSnapDetail").addEventListener('click', () => {
+    bind("btnCloseSnapDetail", 'click', () => {
         document.getElementById("popSnapDetail").classList.add("hide");
     });
 
-    // 问题2：快照详情页按钮
-    document.getElementById("btnSnapDownload").addEventListener('click', snapDetailDownload);
-    document.getElementById("btnSnapSortMenu").addEventListener('click', snapDetailSort);
-    document.getElementById("btnSnapFilterMenu").addEventListener('click', snapDetailFilter);
-    document.getElementById("btnSnapReset").addEventListener('click', snapDetailReset);
-    document.getElementById("btnSnapFilterOk").addEventListener('click', () => {
+    bind("btnSnapDownload", 'click', snapDetailDownload);
+    bind("btnSnapSortMenu", 'click', snapDetailSort);
+    bind("btnSnapFilterMenu", 'click', snapDetailFilter);
+    bind("btnSnapReset", 'click', snapDetailReset);
+    bind("btnSnapFilterOk", 'click', () => {
         const checkboxes = document.querySelectorAll('#snapFilterList input[type="checkbox"]');
         const selectedValues = [];
         checkboxes.forEach(cb => { if (cb.checked) selectedValues.push(Number(cb.value)); });
@@ -3798,27 +3744,89 @@ function bindGlobalButtons() {
         document.getElementById('popSnapFilter').classList.add('hide');
         applySnapDetailView();
     });
-    document.getElementById("btnSnapFilterCancel").addEventListener('click', () => {
+    bind("btnSnapFilterCancel", 'click', () => {
         document.getElementById('popSnapFilter').classList.add('hide');
     });
 
-    document.getElementById("searchInput").addEventListener('input', renderTable);
+    bind("searchInput", 'input', renderTable);
     document.querySelectorAll('input[name="exportMode"]').forEach(el => el.addEventListener('change', fillExportText));
 
-    document.getElementById("btnBatchImportLibConfirm").addEventListener('click', confirmBatchImportLib);
-    document.getElementById("btnBatchImportLibCancel").addEventListener('click', closeBatchImportLib);
+    bind("btnBatchImportLibConfirm", 'click', confirmBatchImportLib);
+    bind("btnBatchImportLibCancel", 'click', closeBatchImportLib);
 
     const diffOldEl = document.getElementById("diffOld");
     const diffNewEl = document.getElementById("diffNew");
     let diffSaveTimer = null;
     function scheduleDiffSave() {
-        appData.diffOldText = diffOldEl.value;
-        appData.diffNewText = diffNewEl.value;
+        if (diffOldEl) appData.diffOldText = diffOldEl.value;
+        if (diffNewEl) appData.diffNewText = diffNewEl.value;
         if (diffSaveTimer) clearTimeout(diffSaveTimer);
         diffSaveTimer = setTimeout(() => { saveStorage(); diffSaveTimer = null; }, 500);
     }
-    diffOldEl.addEventListener('input', scheduleDiffSave);
-    diffNewEl.addEventListener('input', scheduleDiffSave);
+    if (diffOldEl) diffOldEl.addEventListener('input', scheduleDiffSave);
+    if (diffNewEl) diffNewEl.addEventListener('input', scheduleDiffSave);
+
+    // ★ 预设隐藏列逻辑
+    bind("btnPresetCols", 'click', function() {
+        document.getElementById("presetInput1").value = appData.preset_hidden_cols[1] || "";
+        document.getElementById("presetInput2").value = appData.preset_hidden_cols[2] || "";
+        document.getElementById("presetInput3").value = appData.preset_hidden_cols[3] || "";
+        document.getElementById("popPreset").classList.remove("hide");
+    });
+
+    function savePresetInputs() {
+        appData.preset_hidden_cols[1] = document.getElementById("presetInput1").value.trim();
+        appData.preset_hidden_cols[2] = document.getElementById("presetInput2").value.trim();
+        appData.preset_hidden_cols[3] = document.getElementById("presetInput3").value.trim();
+        saveStorage();
+    }
+
+    bind("btnSavePreset", 'click', function() {
+        savePresetInputs();
+        showToast('✅ 预设已保存');
+        document.getElementById("popPreset").classList.add("hide");
+    });
+
+    bind("btnClosePreset", 'click', function() {
+        savePresetInputs();
+        document.getElementById("popPreset").classList.add("hide");
+    });
+
+    function applyPreset(presetNum) {
+        const inputVal = document.getElementById("presetInput" + presetNum).value.trim();
+        if (!inputVal) { alert("预设 " + presetNum + " 为空，请先输入要隐藏的列名"); return; }
+        
+        appData.preset_hidden_cols[presetNum] = inputVal;
+        saveStorage();
+
+        const colNames = inputVal.split(/[,，\s]+/).filter(s => s.length > 0);
+        const allCols = [...baseColsName, ...appData.customCols];
+        
+        let hiddenCount = 0;
+        const actionColIdx = allCols.length;
+        colNames.forEach(name => {
+            const idx = allCols.indexOf(name);
+            if (idx !== -1) {
+                appData.hidden_cols.add(idx);
+                hiddenCount++;
+            } else if (name === "操作") {
+                appData.hidden_cols.add(actionColIdx);
+                hiddenCount++;
+            }
+        });
+
+        if (hiddenCount > 0) {
+            renderTable();
+            alert(`✅ 成功隐藏预设${presetNum}中的 ${hiddenCount} 列`);
+            document.getElementById("popPreset").classList.add("hide");
+        } else {
+            alert(`⚠️ 预设${presetNum}中的列名没有匹配到任何当前列，请检查名称是否正确（如“销量”、“抖音”）`);
+        }
+    }
+
+    bind("btnApplyPreset1", 'click', () => applyPreset(1));
+    bind("btnApplyPreset2", 'click', () => applyPreset(2));
+    bind("btnApplyPreset3", 'click', () => applyPreset(3));
 }
 
 function applyCustomButtonNames() {
