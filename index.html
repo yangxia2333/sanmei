@@ -2935,24 +2935,48 @@ function openRemainFilter() {
     const full = assembleFullData();
     const normalRows = full.filter(r => r.品相 !== "组合");
     const remainSet = new Set();
+    const potRemainSet = new Set(); // ★ 新增：专门记录属于盆苗的剩余库存
+    
     normalRows.forEach(r => {
         const remain = calcRow(r)["剩余库存"];
-        if (remain !== undefined && remain !== null) remainSet.add(remain);
+        if (remain !== undefined && remain !== null) {
+            remainSet.add(remain);
+            if (r.品相 === "盆苗") {
+                potRemainSet.add(remain);
+            }
+        }
     });
+    
     const values = Array.from(remainSet).sort((a,b) => a - b);
     if (values.length === 0) { alert('当前没有可筛选的剩余库存数据'); return; }
+    
     const listDiv = document.getElementById('remainFilterList');
     listDiv.innerHTML = '';
     const selected = new Set(appData.remainFilterValues);
+    
     values.forEach(val => {
         const label = document.createElement('label');
         label.style.display = 'block';
         label.style.padding = '4px 0';
+        label.style.cursor = 'pointer';
+        
         const cb = document.createElement('input');
-        cb.type = 'checkbox'; cb.value = val;
+        cb.type = 'checkbox'; 
+        cb.value = val;
         if (selected.has(val)) cb.checked = true;
         label.appendChild(cb);
-        label.appendChild(document.createTextNode(' ' + val));
+        
+        // ★ 核心修改：如果这个剩余库存数值在盆苗里出现过，就标红并加提示
+        if (potRemainSet.has(val)) {
+            const span = document.createElement('span');
+            span.style.color = '#e74c3c'; // 红色
+            span.style.fontWeight = 'bold';
+            span.innerText = ' ' + val + ' (盆苗)';
+            label.appendChild(span);
+        } else {
+            label.appendChild(document.createTextNode(' ' + val));
+        }
+        
         listDiv.appendChild(label);
     });
     document.getElementById('popRemainFilter').classList.remove('hide');
