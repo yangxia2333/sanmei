@@ -3240,7 +3240,12 @@ function renderTable() {
         });
         let summaryHtml = `小苗销量总数：${totalSales}`;
         if (potSalesList.length > 0) {
-            summaryHtml += `<br>盆苗销量：${potSalesList.join('，')}`;
+            // ★ 修改：每 3 个盆苗品种就换一行，防止文字太长把表格撑爆
+            let chunks = [];
+            for (let i = 0; i < potSalesList.length; i += 3) {
+                chunks.push(potSalesList.slice(i, i + 3).join('，'));
+            }
+            summaryHtml += `<br>盆苗销量：<br>${chunks.join('<br>')}`;
         }
         const visibleColsCount = dataCols.filter((c, ci) => !appData.hidden_cols.has(ci)).length;
         const totalColspan = 1 + visibleColsCount + 1;
