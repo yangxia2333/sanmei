@@ -3072,10 +3072,10 @@ function exportSelectedColsToImage() {
         if (parentTr && parentTr.classList.contains('summary-row')) {
             cell.style.whiteSpace = 'normal';
             cell.style.wordBreak = 'break-all';
-            cell.style.padding = '10px';
+            cell.style.textAlign = 'left'; // ★ 左对齐
+            cell.style.padding = '10px 15px';
+            cell.style.maxWidth = '600px'; // ★ 核心：最大宽度限制在 600px，超过自动换行
             cell.style.lineHeight = '1.6';
-        } else {
-            cell.style.whiteSpace = 'nowrap';
         }
     });
     const container = document.createElement('div');
@@ -3239,18 +3239,14 @@ function renderTable() {
             }
         });
         let summaryHtml = `小苗销量总数：${totalSales}`;
+        let summaryHtml = `小苗销量总数：${totalSales}`;
         if (potSalesList.length > 0) {
-            // ★ 修改：每 3 个盆苗品种就换一行，防止文字太长把表格撑爆
-            let chunks = [];
-            for (let i = 0; i < potSalesList.length; i += 3) {
-                chunks.push(potSalesList.slice(i, i + 3).join('，'));
-            }
-            summaryHtml += `<br>盆苗销量：<br>${chunks.join('<br>')}`;
+            summaryHtml += `<br>盆苗销量：${potSalesList.join('，')}`;
         }
         const visibleColsCount = dataCols.filter((c, ci) => !appData.hidden_cols.has(ci)).length;
         const totalColspan = 1 + visibleColsCount + 1;
         html += `<tr class="summary-row">`;
-                html += `<td colspan="${totalColspan}" style="text-align:center;border:none;border-top:2px solid #2b65ec;color:#e74c3c;font-weight:bold;padding:10px;font-size:13px;white-space:normal !important;word-break:break-all;line-height:1.6;">${summaryHtml}</td>`;
+        html += `<td colspan="${totalColspan}" style="text-align:left; padding-left:15px; border:none; border-top:2px solid #2b65ec; color:#e74c3c; font-weight:bold; font-size:13px; white-space:normal !important; word-break:break-all; line-height:1.6;">${summaryHtml}</td>`;
         html += `</tr>`;
         html += `</table>`;
 
