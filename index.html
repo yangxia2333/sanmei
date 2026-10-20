@@ -3060,14 +3060,24 @@ function exportSelectedColsToImage() {
     cloneTable.style.width = 'auto';
     cloneTable.style.fontSize = '14px';
     cloneTable.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-            cloneTable.querySelectorAll('th, td').forEach(cell => {
-            cell.style.border = '1px solid #ddd';
-            cell.style.padding = '2px 4px'; // 紧凑的内边距，只比文字大一点点
-            cell.style.textAlign = 'center';
+    cloneTable.querySelectorAll('th, td').forEach(cell => {
+        cell.style.border = '1px solid #ddd';
+        cell.style.padding = '2px 4px'; // 紧凑的内边距，只比文字大一点点
+        cell.style.textAlign = 'center';
+        cell.style.minWidth = 'auto';   // 防止表头被撑开
+        if (!cell.style.backgroundColor) cell.style.backgroundColor = cell.tagName === 'TH' ? '#e9edff' : '#ffffff';
+
+        // ★ 新增：对底部的合计行特殊处理，允许换行并居中
+        const parentTr = cell.parentElement;
+        if (parentTr && parentTr.classList.contains('summary-row')) {
+            cell.style.whiteSpace = 'normal';
+            cell.style.wordBreak = 'break-all';
+            cell.style.padding = '10px';
+            cell.style.lineHeight = '1.6';
+        } else {
             cell.style.whiteSpace = 'nowrap';
-            cell.style.minWidth = 'auto';   // 防止表头被撑开
-            if (!cell.style.backgroundColor) cell.style.backgroundColor = cell.tagName === 'TH' ? '#e9edff' : '#ffffff';
-        });
+        }
+    });
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
