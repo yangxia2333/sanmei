@@ -1551,73 +1551,81 @@ function confirmBatchImportLib() {
     const lines = text.split("\n").map(s => s.trim()).filter(s => s.length > 0);
     if (lines.length === 0) { alert("请输入至少一个品种名"); return; }
 
-    let count = 0;
-    const initPriceObj = () => ({ 带花: {}, 少量花: {}, 不带花: {}, 组合: {} });
+    let newCount = 0;
+    let updateCount = 0;
 
     lines.forEach(line => {
-        // 1. 提取价格：末尾的数字（用制表符或空格分隔）
-        const priceMatch = line.match(/^(.*?)[\t\s]+([\d.]+)$/);
-        if (!priceMatch) return;
-        const mainText = priceMatch[1].trim();
-        const price = parseFloat(priceMatch[2]);
-        if (isNaN(price)) return;
+        let formal = "";
+        let aliasList = [];
+        let priceInfo = null; // { phase, spec, price }
 
-        // 2. 提取品种名：【...】
-        const varMatch = mainText.match(/【(.*?)】/);
-        if (!varMatch) return;
-        let formal = normalizeVariety(varMatch[1]);
+        const bracketMatch = line.match(/【(.*?)】/);
+        const priceMatch = line.match(/^(.*?)[\t\s]+([\d.]+)$/);
+
+        if (bracketMatch && priceMatch) {
+            // 格式A：带价格  ——  【品种】带花粗杆 2.5
+            const mainText = priceMatch[1].trim();
+            const price = parseFloat(priceMatch[2]);
+            formal = normalizeVariety(bracketMatch[1]);
+            if (!formal || isNaN(price)) return;
+
+            let phase = "带花";
+            if (mainText.includes("不带花")) phase = "不带花";
+            else if (mainText.includes("少量花")) phase = "少量花";
+
+            let spec = "粗";
+            if (mainText.includes("细杆")) spec = "细";
+            if (mainText.includes("小苗一") || mainText.includes("苗一") ||
+                mainText.includes("小苗1") || mainText.includes("苗1")) spec += "一";
+
+            priceInfo = { phase, spec, price };
+        } else {
+            // 格式B：品种名[,别名]  ——  广红樱  或  橙粉公主,橙粉
+            const parts = line.split(/[，,、\s]+/).map(s => s.trim()).filter(Boolean);
+            if (parts.length === 0) return;
+            formal = normalizeVariety(parts[0]);
+            aliasList = parts.slice(1).map(normalizeVariety).filter(Boolean);
+        }
+
         if (!formal) return;
 
-        // 3. 提取品相
-        let phase = "带花"; // 默认
-        if (mainText.includes("不带花")) phase = "不带花";
-        else if (mainText.includes("少量花")) phase = "少量花";
-
-        // 4. 提取规格（含“一”字的兼容）
-        let spec = "粗"; // 默认粗
-        if (mainText.includes("细杆")) spec = "细";
-        if (mainText.includes("小苗一") || mainText.includes("苗一") || mainText.includes("小苗1") || mainText.includes("苗1")) spec += "一";
-
-        // 5. 确保品种存在
+        // 写入品种名
         if (!appData.variety_list.includes(formal)) {
             appData.variety_list.push(formal);
-            count++;
-        }
-
-        // 6. 初始化价格结构
-        let p = appData.variety_prices[formal];
-        if (p === undefined || p === null) {
-            p = initPriceObj();
-        } else if (typeof p === 'number') {
-            p = { 带花: { 粗: p }, 少量花: {}, 不带花: {}, 组合: {} };
-        } else if (typeof p === 'object' && !p.带花 && !p.少量花 && !p.不带花 && !p.组合) {
-            p = { 带花: { 粗: p.粗, 细: p.细 }, 少量花: {}, 不带花: {}, 组合: {} };
-        }
-        if (!p.不带花) p.不带花 = {};
-
-        // 7. 写入价格
-        if (phase === "组合") {
-            p.组合 = price;
+            newCount++;
         } else {
-            if (!p[phase]) p[phase] = {};
-            p[phase][spec] = price;
+            updateCount++;
         }
 
-        appData.variety_prices[formal] = p;
-                            // ★ 新增：带价格的文本也生成表格行，数量为 0
-                    const existRow = out.some(r => r.品种 === formal && r.品相 === phase && (r.规格||'') === spec);
-                    if (!existRow) {
-                        out.push({
-                            品种: formal, 品相: phase, 原始数量: 0,
-                            备注: "", 下架: false, _isCombine: false, _isSystemCombine: false, 规格: spec
-                        });
-                    }
+        // 写入别名
+        aliasList.forEach(a => { appData.alias_map[a] = formal; });
+
+        // 写入价格（有价格的才写）
+        if (priceInfo) {
+            let p = appData.variety_prices[formal];
+            if (p === undefined || p === null) {
+                p = { 带花: {}, 少量花: {}, 不带花: {}, 组合: {} };
+            } else if (typeof p === 'number') {
+                p = { 带花: { 粗: p }, 少量花: {}, 不带花: {}, 组合: {} };
+            } else if (typeof p === 'object' && !p.带花 && !p.少量花 && !p.不带花 && !p.组合) {
+                p = { 带花: { 粗: p.粗, 细: p.细 }, 少量花: {}, 不带花: {}, 组合: {} };
+            }
+            if (!p.不带花) p.不带花 = {};
+
+            if (priceInfo.phase === "组合") {
+                p.组合 = priceInfo.price;
+            } else {
+                if (!p[priceInfo.phase]) p[priceInfo.phase] = {};
+                p[priceInfo.phase][priceInfo.spec] = priceInfo.price;
+            }
+            appData.variety_prices[formal] = p;
+        }
     });
 
     saveStorage();
     renderLibList();
     closeBatchImportLib();
-    alert(`成功导入 ${count} 个新品种`);
+    alert(`✅ 批量导入完成\n新增 ${newCount} 个品种，更新 ${updateCount} 个已有品种`);
 }
 
 function saveDivisor() {
