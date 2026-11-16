@@ -3234,7 +3234,8 @@ function renderTable() {
                     const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
                     potSalesList.push(`${displayName}${sale}盆`);
                 }
-            } else {
+            } else if (r.品相 !== "组合") {
+                // ★ 修复：跳过组合行，因为组合的销量已经分摊到单品种上了
                 totalSales += sale;
             }
         });
