@@ -3224,20 +3224,27 @@ function renderTable() {
         });
                 html += `</tbody>`;
                 // ★ 计算：小苗销量（不含盆苗）+ 每个盆苗品种的销量
+                // ★ 终极修复：直接遍历销量字典，杜绝组合重复计算
         let totalSales = 0;
         let potSalesList = [];
-        appData.pure_rows.forEach(r => {
-            const calc = calcRow(r);
-            const sale = Number(calc["销量"]) || 0;
-            if (r.品相 === "盆苗") {
-                if (sale > 0) {
-                    const displayName = r.规格 ? r.品种 + r.规格 : r.品种;
-                    potSalesList.push(`${displayName}${sale}盆`);
+        
+        for (const key in appData.sales_dict) {
+            const parts = key.split('||');
+            const vn = parts[0];
+            const phase = parts[1];
+            const spec = parts[2] || '';
+            const qty = Number(appData.sales_dict[key]) || 0;
+            
+            if (phase === "盆苗") {
+                if (qty > 0) {
+                    const displayName = spec ? vn + spec : vn;
+                    potSalesList.push(`${displayName}${qty}盆`);
                 }
-            } else if (r.品相 !== "组合") {  // 👈 这里必须过滤掉组合！
-                totalSales += sale;
+            } else {
+                // 这里包含了所有单品种基础销量，以及组合自身的销量，无任何重叠
+                totalSales += qty;
             }
-        });
+        }
         let summaryHtml = `小苗销量总数：${totalSales}`;
         if (potSalesList.length > 0) {
             // ★ 修改：每 3 个盆苗品种就换一行，防止文字太长把表格撑爆
